@@ -1,308 +1,310 @@
 "use client"
 
 import type React from "react"
-
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Trash, Edit, Save, X, Upload, FileText } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Plus, Trash, Edit, Save, X, Upload, FileText, RefreshCcw, AlertCircle, Eye } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+// import { SensayTrainingService } from "@/app/lib/api/sensay-training"
 
+// Using the actual Sensay API types
 type KnowledgeEntry = {
-  id: string
-  question: string
-  answer: string
-  replicaUUID: string
-  createdAt: string
-  updatedAt: string
+  id: number
+  replica_uuid: string | null
+  type: "file_upload" | "url" | "training_history" | "text"
+  filename: string | null
+  status: string
+  raw_text: string | null
+  processed_text: string | null
+  created_at: string
+  updated_at: string
+  title: string | null
+  description: string | null
 }
 
 export default function TrainingPage() {
   const [entries, setEntries] = useState<KnowledgeEntry[]>([])
   const [loading, setLoading] = useState(true)
-  const [question, setQuestion] = useState("")
-  const [answer, setAnswer] = useState("")
+  const [refreshing, setRefreshing] = useState(false)
+  const [title, setTitle] = useState("")
+  const [content, setContent] = useState("")
+  const [description, setDescription] = useState("")
   const [replicaUUID, setReplicaUUID] = useState("")
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editQuestion, setEditQuestion] = useState("")
-  const [editAnswer, setEditAnswer] = useState("")
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editTitle, setEditTitle] = useState("")
+  const [editContent, setEditContent] = useState("")
+  const [editDescription, setEditDescription] = useState("")
   const [file, setFile] = useState<File | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
+  // Используем API-маршруты вместо прямого доступа к сервису
   const { toast } = useToast()
 
   // Fetch knowledge entries
-  useEffect(() => {
-    const fetchEntries = async () => {
-      try {
+  const fetchEntries = useCallback(async (showRefreshing = true) => {
+    try {
+      if (showRefreshing) {
+        setRefreshing(true)
+      } else {
         setLoading(true)
+      }
 
-        // Try to fetch from the API
-        try {
-          const response = await fetch("https://api.sensay.io/v1/training", {
-            // Add headers if needed
-            headers: {
-              "Content-Type": "application/json",
-              // Add any auth headers if required
-              // "Authorization": `Bearer ${apiKey}`
-            },
-          })
-
-          if (response.ok) {
-            const data = await response.json()
-            setEntries(data.entries || [])
-            return
-          }
-        } catch (apiError) {
-          console.error("API Error:", apiError)
-          // Continue to fallback
+      // Fetch entries from the API via API routes
+      try {
+        const response = await fetch('/api/sensay/training')
+        
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Failed to fetch entries')
         }
-
-        // Fallback to mock data if API call fails
-        console.log("Using mock data due to API connection issues")
-        const mockEntries = [
-          {
-            id: "mock-1",
-            question: "What is the Mafia game?",
-            answer:
-              "Mafia is a social deduction game where players are secretly assigned roles and must work together to identify the mafia members among them.",
-            replicaUUID: "mock-replica-123",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          {
-            id: "mock-2",
-            question: "How do you win as a Town member?",
-            answer:
-              "As a Town member, you win by successfully identifying and eliminating all Mafia members through discussion and voting.",
-            replicaUUID: "mock-replica-123",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          {
-            id: "mock-3",
-            question: "What is the role of the Detective?",
-            answer:
-              "The Detective can investigate one player each night to determine if they are a member of the Mafia or not.",
-            replicaUUID: "mock-replica-123",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-        ]
-
-        setEntries(mockEntries)
-      } catch (error) {
-        console.error("Error in fetchEntries:", error)
+        
+        const fetchedEntries = await response.json()
+        setEntries(fetchedEntries)
+      } catch (apiError) {
+        console.error("API Error:", apiError)
         toast({
           title: "Error",
-          description: "Failed to load knowledge entries. Using mock data instead.",
+          description: "Could not fetch training data. Please check your API settings.",
           variant: "destructive",
         })
-
         // Set empty array as fallback
         setEntries([])
-      } finally {
-        setLoading(false)
       }
+    } catch (error) {
+      console.error("Error in fetchEntries:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load knowledge entries.",
+        variant: "destructive",
+      })
+      setEntries([])
+    } finally {
+      setRefreshing(false)
+      setLoading(false)
     }
-
-    fetchEntries()
   }, [toast])
+
+  // Initial fetch
+  useEffect(() => {
+    fetchEntries(false)
+  }, [fetchEntries])
+  
+  // Function to refresh entries
+  const handleRefresh = () => {
+    fetchEntries(true)
+  }
 
   // Create knowledge entry
   const handleCreateEntry = async () => {
-    if (!question.trim() || !answer.trim() || !replicaUUID.trim()) {
+    if (!content || !replicaUUID) {
       toast({
-        title: "Validation Error",
-        description: "Please fill in all fields.",
+        title: "Missing information",
+        description: "Please provide a replica UUID and content for the training entry.",
         variant: "destructive",
       })
       return
     }
 
     try {
-      // Show loading state
-      toast({
-        title: "Processing",
-        description: "Creating knowledge entry...",
-      })
-
-      try {
-        const response = await fetch(`https://api.sensay.io/v1/replicas/${replicaUUID}/training`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            // Add any auth headers if required
-            // "Authorization": `Bearer ${apiKey}`
-          },
-          body: JSON.stringify({
-            question,
-            answer,
-          }),
+      setLoading(true)
+      const response = await fetch('/api/sensay/training', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          replicaUUID,
+          content,
+          title: title || undefined,
+          description: description || undefined
         })
-
-        if (response.ok) {
-          const data = await response.json()
-          setEntries((prev) => [...prev, data.entry])
-          setQuestion("")
-          setAnswer("")
-
-          toast({
-            title: "Success",
-            description: "Knowledge entry created successfully.",
-          })
-          return
-        }
-      } catch (apiError) {
-        console.error("API Error:", apiError)
-        // Continue to fallback
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create training entry')
       }
-
-      // If API call fails, create a mock entry
-      const mockEntry = {
-        id: `mock-${Date.now()}`,
-        question,
-        answer,
-        replicaUUID,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }
-
-      setEntries((prev) => [...prev, mockEntry])
-      setQuestion("")
-      setAnswer("")
+      
+      const data = await response.json()
+      const knowledgeBaseID = data.knowledgeBaseID
 
       toast({
-        title: "Demo Mode",
-        description: "Entry created in demo mode (API unavailable).",
+        title: "Training entry created",
+        description: `Successfully created a training entry with ID: ${knowledgeBaseID}`,
       })
+
+      // Add the new entry to the list (optimistic update)
+      const newEntry: KnowledgeEntry = {
+        id: knowledgeBaseID,
+        replica_uuid: replicaUUID,
+        type: "text",
+        filename: null,
+        status: "PROCESSING",
+        raw_text: content,
+        processed_text: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        title: title || null,
+        description: description || null
+      }
+      
+      setEntries(prev => [newEntry, ...prev])
+
+      // Reset form fields
+      setTitle("")
+      setContent("")
+      setDescription("")
+      
+      // Refresh entries to get the updated status
+      setTimeout(() => {
+        fetchEntries(true)
+      }, 2000)
     } catch (error) {
-      console.error("Error creating knowledge entry:", error)
+      console.error("Error creating training entry:", error)
       toast({
         title: "Error",
-        description: "Failed to create knowledge entry. Please try again.",
+        description: "Failed to create training entry. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setLoading(false)
     }
   }
 
   // Update knowledge entry
-  const handleUpdateEntry = async (id: string) => {
-    if (!editQuestion.trim() || !editAnswer.trim()) {
+  const handleUpdateEntry = async (id: number) => {
+    if (!editContent) {
       toast({
-        title: "Validation Error",
-        description: "Please fill in all fields.",
+        title: "Missing information",
+        description: "Please provide content for the training entry.",
         variant: "destructive",
       })
       return
     }
 
-    const entry = entries.find((e) => e.id === id)
-    if (!entry) return
-
     try {
-      try {
-        const response = await fetch(`https://api.sensay.io/v1/replicas/${entry.replicaUUID}/training/${id}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            // Add auth headers if needed
-          },
-          body: JSON.stringify({
-            question: editQuestion,
-            answer: editAnswer,
-          }),
-        })
-
-        if (response.ok) {
-          // API call succeeded
-          setEntries((prev) =>
-            prev.map((e) =>
-              e.id === id
-                ? { ...e, question: editQuestion, answer: editAnswer, updatedAt: new Date().toISOString() }
-                : e,
-            ),
-          )
-          setEditingId(null)
-          toast({
-            title: "Success",
-            description: "Knowledge entry updated successfully.",
-          })
-          return
-        }
-      } catch (apiError) {
-        console.error("API Error:", apiError)
-        // Continue to fallback
+      setLoading(true)
+      const entry = entries.find(e => e.id === id)
+      
+      if (!entry?.replica_uuid) {
+        throw new Error("Entry or replica UUID not found")
       }
 
-      // Fallback - update local state only
-      setEntries((prev) =>
-        prev.map((e) =>
-          e.id === id ? { ...e, question: editQuestion, answer: editAnswer, updatedAt: new Date().toISOString() } : e,
-        ),
-      )
-      setEditingId(null)
-      toast({
-        title: "Demo Mode",
-        description: "Entry updated in demo mode (API unavailable).",
+      const response = await fetch(`/api/sensay/training?id=${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          replicaUUID: entry.replica_uuid,
+          content: editContent,
+          title: editTitle || undefined,
+          description: editDescription || undefined
+        })
       })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to update training entry')
+      }
+
+      toast({
+        title: "Training entry updated",
+        description: "Successfully updated the training entry",
+      })
+
+      // Update the entry in the list (optimistic update)
+      setEntries(prev => 
+        prev.map(entry => {
+          if (entry.id === id) {
+            return {
+              ...entry,
+              raw_text: editContent,
+              title: editTitle || null,
+              description: editDescription || null,
+              updated_at: new Date().toISOString(),
+              status: "PROCESSING" // Reset status as it will be processed again
+            }
+          }
+          return entry
+        })
+      )
+
+      // Reset editing state
+      setEditingId(null)
+      setEditTitle("")
+      setEditContent("")
+      setEditDescription("")
+      
+      // Refresh entries to get the updated status
+      setTimeout(() => {
+        fetchEntries(true)
+      }, 2000)
     } catch (error) {
-      console.error("Error updating knowledge entry:", error)
+      console.error("Error updating training entry:", error)
       toast({
         title: "Error",
-        description: "Failed to update knowledge entry. Please try again.",
+        description: "Failed to update training entry. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setLoading(false)
     }
   }
 
   // Delete knowledge entry
-  const handleDeleteEntry = async (id: string) => {
-    try {
-      try {
-        const response = await fetch(`https://api.sensay.io/v1/training/${id}`, {
-          method: "DELETE",
-          // Add auth headers if needed
-        })
+  const handleDeleteEntry = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this training entry? This action cannot be undone.")) {
+      return
+    }
 
-        if (response.ok) {
-          // API call succeeded
-          setEntries((prev) => prev.filter((e) => e.id !== id))
-          toast({
-            title: "Success",
-            description: "Knowledge entry deleted successfully.",
-          })
-          return
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/sensay/training?id=${id}`, {
+        method: 'DELETE'
+      })
+      
+      if (!response.ok) {
+        try {
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Failed to delete training entry')
+        } catch (e) {
+          // Если ответ не содержит JSON
+          throw new Error(`Failed to delete training entry: ${response.statusText}`)
         }
-      } catch (apiError) {
-        console.error("API Error:", apiError)
-        // Continue to fallback
       }
 
-      // Fallback - update local state only
-      setEntries((prev) => prev.filter((e) => e.id !== id))
       toast({
-        title: "Demo Mode",
-        description: "Entry deleted in demo mode (API unavailable).",
+        title: "Training entry deleted",
+        description: "Successfully deleted the training entry",
       })
+
+      // Remove the entry from the list
+      setEntries(prev => prev.filter(entry => entry.id !== id))
     } catch (error) {
-      console.error("Error deleting knowledge entry:", error)
+      console.error("Error deleting training entry:", error)
       toast({
         title: "Error",
-        description: "Failed to delete knowledge entry. Please try again.",
+        description: "Failed to delete training entry. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setLoading(false)
     }
   }
 
   // Start editing entry
   const startEditing = (entry: KnowledgeEntry) => {
     setEditingId(entry.id)
-    setEditQuestion(entry.question)
-    setEditAnswer(entry.answer)
+    setEditTitle(entry.title || "")
+    setEditContent(entry.raw_text || "")
+    setEditDescription(entry.description || "")
   }
 
   // Cancel editing
@@ -312,303 +314,398 @@ export default function TrainingPage() {
 
   // Handle file upload
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
+    if (e.target.files && e.target.files.length > 0) {
       setFile(e.target.files[0])
     }
   }
 
-  // Upload file
+  // Upload file using the Sensay file upload API with signed URLs
   const handleFileUpload = async () => {
     if (!file || !replicaUUID) {
       toast({
-        title: "Validation Error",
-        description: "Please select a file and enter a replica UUID.",
+        title: "Missing information",
+        description: "Please select a file and provide a replica UUID.",
         variant: "destructive",
       })
       return
     }
 
     try {
-      // First, get a signed URL for upload
-      const urlResponse = await fetch(`https://api.sensay.io/v1/replicas/${replicaUUID}/training/files/upload`)
-      if (!urlResponse.ok) throw new Error("Failed to get upload URL")
-
-      const { uploadUrl } = await urlResponse.json()
-
-      // Then upload the file
-      const xhr = new XMLHttpRequest()
-      xhr.open("PUT", uploadUrl)
-
-      xhr.upload.addEventListener("progress", (event) => {
-        if (event.lengthComputable) {
-          const progress = Math.round((event.loaded / event.total) * 100)
-          setUploadProgress(progress)
+      setUploadProgress(10)
+      
+      console.log(`Начинаем загрузку файла: ${file.name}, размер: ${file.size} байт`)
+      
+      // Шаг 1: Получаем подписанный URL для загрузки файла
+      const getSignedUrlResponse = await fetch(
+        `/api/sensay/training/files?filename=${encodeURIComponent(file.name)}&replicaUUID=${replicaUUID}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          }
         }
+      )
+      
+      if (!getSignedUrlResponse.ok) {
+        const errorData = await getSignedUrlResponse.json()
+        throw new Error(errorData.error || 'Failed to get signed URL for file upload')
+      }
+      
+      const signedUrlData = await getSignedUrlResponse.json()
+      const { signedURL, knowledgeBaseID } = signedUrlData
+      
+      if (!signedURL || !knowledgeBaseID) {
+        throw new Error('Invalid response from server - missing signedURL or knowledgeBaseID')
+      }
+      
+      console.log(`Получен подписанный URL для загрузки: ${knowledgeBaseID}`)
+      setUploadProgress(30)
+      
+      // Шаг 2: Читаем файл и передаем его содержимое
+      const fileText = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          const content = e.target?.result as string
+          resolve(content)
+        }
+        reader.onerror = (e) => {
+          reject(new Error('Failed to read file'))
+        }
+        reader.readAsText(file)
       })
-
-      xhr.onload = () => {
-        if (xhr.status === 200) {
-          toast({
-            title: "Success",
-            description: "File uploaded successfully.",
-          })
-          setFile(null)
-          setUploadProgress(0)
-        } else {
-          throw new Error("Upload failed")
-        }
+      
+      setUploadProgress(50)
+      
+      // Шаг 3: Загружаем файл на подписанный URL
+      const uploadResponse = await fetch('/api/sensay/training/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          signedURL,
+          knowledgeBaseID,
+          fileContent: fileText,
+          fileType: file.type || 'text/plain'
+        })
+      })
+      
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json().catch(() => ({ error: uploadResponse.statusText }))
+        throw new Error(errorData.error || 'Failed to upload file')
       }
-
-      xhr.onerror = () => {
-        throw new Error("Upload failed")
-      }
-
-      xhr.send(file)
+      
+      const uploadResult = await uploadResponse.json()
+      setUploadProgress(80)
+      
+      setUploadProgress(100)
+      
+      toast({
+        title: "File uploaded",
+        description: "File has been successfully uploaded and is being processed.",
+      })
+      
+      // Очищаем форму и обновляем список
+      setFile(null)
+      
+      // Обновляем список записей
+      setTimeout(() => {
+        fetchEntries(true)
+        setUploadProgress(0)
+      }, 2000)
+      
     } catch (error) {
-      console.error("Error uploading file:", error)
+      console.error('Error in file upload:', error)
       toast({
         title: "Error",
-        description: "Failed to upload file. Please try again.",
+        description: error instanceof Error ? error.message : 'Failed to upload file. Please try again.',
         variant: "destructive",
       })
       setUploadProgress(0)
     }
   }
 
+  // Get status badge color
+  const getStatusBadgeColor = (status: string) => {
+    switch (status) {
+      case "READY":
+        return "bg-green-500 hover:bg-green-600"
+      case "PROCESSING":
+        return "bg-blue-500 hover:bg-blue-600"
+      case "ERR_FILE_PROCESSING":
+      case "ERR_TEXT_PROCESSING":
+      case "ERR_TEXT_TO_VECTOR":
+      case "SYNC_ERROR":
+        return "bg-red-500 hover:bg-red-600"
+      case "BLANK":
+      case "AWAITING_UPLOAD":
+        return "bg-yellow-500 hover:bg-yellow-600"
+      default:
+        return "bg-gray-500 hover:bg-gray-600"
+    }
+  }
+
   return (
-    <div className="container mx-auto py-6">
-      <h1 className="text-3xl font-bold mb-6 text-mafia-900 dark:text-mafia-300">AI Agent Training</h1>
+    <div className="container mx-auto py-8 pb-32" style={{ height: "calc(100vh - 60px)", overflowY: "auto" }}>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-mafia-900 dark:text-mafia-100">AI Training</h1>
+          <Button 
+            onClick={handleRefresh} 
+            variant="outline" 
+            size="sm" 
+            className="flex items-center gap-2"
+            disabled={refreshing}
+          >
+            <RefreshCcw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
 
-      <Tabs defaultValue="entries">
-        <TabsList className="mb-6 bg-mafia-100 dark:bg-mafia-900/30">
-          <TabsTrigger value="entries" className="data-[state=active]:bg-mafia-600 data-[state=active]:text-white">
-            Knowledge Base
-          </TabsTrigger>
-          <TabsTrigger value="create" className="data-[state=active]:bg-mafia-600 data-[state=active]:text-white">
-            Add Entry
-          </TabsTrigger>
-          <TabsTrigger value="upload" className="data-[state=active]:bg-mafia-600 data-[state=active]:text-white">
-            Upload Files
-          </TabsTrigger>
-        </TabsList>
+        <Tabs defaultValue="text">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="text">Text Training</TabsTrigger>
+            <TabsTrigger value="upload">File Upload</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="entries">
-          <Card className="border-mafia-200 dark:border-mafia-800">
-            <CardHeader className="bg-mafia-50 dark:bg-mafia-900/20 rounded-t-lg">
-              <CardTitle className="text-mafia-900 dark:text-mafia-300">Knowledge Base Entries</CardTitle>
-              <CardDescription>Manage your AI agent's knowledge base</CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
+          <TabsContent value="text">
+            <Card className="border-mafia-200 dark:border-mafia-800">
+              <CardHeader className="bg-mafia-50 dark:bg-mafia-900/20 rounded-t-lg">
+                <CardTitle className="text-mafia-900 dark:text-mafia-300">Create Training Entry</CardTitle>
+                <CardDescription>Train your AI agent with custom knowledge</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-4">
+                <div>
+                  <label htmlFor="replicaUUID" className="block text-sm font-medium mb-1">
+                    Replica UUID
+                  </label>
+                  <Input
+                    id="replicaUUID"
+                    value={replicaUUID}
+                    onChange={(e) => setReplicaUUID(e.target.value)}
+                    placeholder="Enter replica UUID"
+                    className="border-mafia-300 focus-visible:ring-mafia-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="title" className="block text-sm font-medium mb-1">
+                    Title
+                  </label>
+                  <Input
+                    id="title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Enter a title for this training entry"
+                    className="border-mafia-300 focus-visible:ring-mafia-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="content" className="block text-sm font-medium mb-1">
+                    Content
+                  </label>
+                  <Textarea
+                    id="content"
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    placeholder="Enter the content you want to train the AI with"
+                    className="min-h-[150px] border-mafia-300 focus-visible:ring-mafia-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="description" className="block text-sm font-medium mb-1">
+                    Description (Optional)
+                  </label>
+                  <Textarea
+                    id="description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Enter a description for this training entry"
+                    className="min-h-[80px] border-mafia-300 focus-visible:ring-mafia-500"
+                  />
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button 
+                  onClick={handleCreateEntry} 
+                  className="bg-mafia-600 hover:bg-mafia-700"
+                  disabled={loading}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Entry
+                </Button>
+              </CardFooter>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="upload">
+            <Card className="border-mafia-200 dark:border-mafia-800">
+              <CardHeader className="bg-mafia-50 dark:bg-mafia-900/20 rounded-t-lg">
+                <CardTitle className="text-mafia-900 dark:text-mafia-300">Upload Training Files</CardTitle>
+                <CardDescription>Upload documents to train your AI agent</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-4">
+                <div>
+                  <label htmlFor="replicaUUID" className="block text-sm font-medium mb-1">
+                    Replica UUID
+                  </label>
+                  <Input
+                    id="replicaUUID"
+                    value={replicaUUID}
+                    onChange={(e) => setReplicaUUID(e.target.value)}
+                    placeholder="Enter replica UUID"
+                    className="border-mafia-300 focus-visible:ring-mafia-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="file" className="block text-sm font-medium mb-1">
+                    Training File
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="file"
+                      type="file"
+                      onChange={handleFileChange}
+                      className="border-mafia-300 focus-visible:ring-mafia-500"
+                    />
+                    {file && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <FileText className="h-4 w-4" />
+                        <span className="truncate max-w-[200px]">{file.name}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {uploadProgress > 0 && (
+                  <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                    <div 
+                      className="bg-mafia-600 h-2.5 rounded-full" 
+                      style={{ width: `${uploadProgress}%` }} 
+                    />
+                  </div>
+                )}
+              </CardContent>
+              <CardFooter>
+                <Button
+                  onClick={handleFileUpload}
+                  className="bg-mafia-600 hover:bg-mafia-700"
+                  disabled={!file || uploadProgress > 0 || loading}
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  Upload File
+                </Button>
+              </CardFooter>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+        <div>
+          <h2 className="text-xl font-bold mb-4 text-mafia-900 dark:text-mafia-100">Training Entries</h2>
+          {loading && !refreshing ? (
+            <div className="space-y-4">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+          ) : entries.length === 0 ? (
+            <div className="text-center py-8 border border-dashed rounded-lg">
+              <AlertCircle className="mx-auto h-10 w-10 text-mafia-400 mb-2" />
+              <p className="text-mafia-600 dark:text-mafia-400">No training entries found</p>
+              <p className="text-sm text-mafia-500 dark:text-mafia-500">
+                Create a new entry above to get started with training your AI
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Question</TableHead>
-                    <TableHead>Answer</TableHead>
-                    <TableHead>Replica ID</TableHead>
-                    <TableHead>Updated</TableHead>
-                    <TableHead className="w-[100px]">Actions</TableHead>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Content</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-4">
-                        Loading entries...
+                  {entries.map((entry) => (
+                    <TableRow key={entry.id} className={editingId === entry.id ? "bg-mafia-50 dark:bg-mafia-800/30" : ""}>
+                      <TableCell className="font-medium">{entry.id}</TableCell>
+                      <TableCell>
+                        {editingId === entry.id ? (
+                          <Input
+                            value={editTitle}
+                            onChange={(e) => setEditTitle(e.target.value)}
+                            placeholder="Title"
+                            className="border-mafia-300 focus-visible:ring-mafia-500"
+                          />
+                        ) : (
+                          <div className="max-w-[200px] truncate">{entry.title || "No title"}</div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {editingId === entry.id ? (
+                          <Textarea
+                            value={editContent}
+                            onChange={(e) => setEditContent(e.target.value)}
+                            placeholder="Content"
+                            className="border-mafia-300 focus-visible:ring-mafia-500 min-h-[100px]"
+                          />
+                        ) : (
+                          <div className="max-w-[300px] truncate">{entry.raw_text || "No content"}</div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getStatusBadgeColor(entry.status)}>
+                          {entry.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{entry.type}</Badge>
+                      </TableCell>
+                      <TableCell>{new Date(entry.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-right">
+                        {editingId === entry.id ? (
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleUpdateEntry(entry.id)}
+                              disabled={loading}
+                            >
+                              <Save className="h-4 w-4 mr-1" />
+                              Save
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={cancelEditing}>
+                              <X className="h-4 w-4 mr-1" />
+                              Cancel
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" onClick={() => startEditing(entry)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-500 hover:text-red-700 hover:bg-red-100"
+                              onClick={() => handleDeleteEntry(entry.id)}
+                            >
+                              <Trash className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
                       </TableCell>
                     </TableRow>
-                  ) : entries.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-4">
-                        No knowledge entries found.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    entries.map((entry) => (
-                      <TableRow key={entry.id}>
-                        <TableCell className="align-top">
-                          {editingId === entry.id ? (
-                            <Textarea
-                              value={editQuestion}
-                              onChange={(e) => setEditQuestion(e.target.value)}
-                              className="min-h-[100px]"
-                            />
-                          ) : (
-                            <div className="max-w-xs overflow-hidden text-ellipsis">{entry.question}</div>
-                          )}
-                        </TableCell>
-                        <TableCell className="align-top">
-                          {editingId === entry.id ? (
-                            <Textarea
-                              value={editAnswer}
-                              onChange={(e) => setEditAnswer(e.target.value)}
-                              className="min-h-[100px]"
-                            />
-                          ) : (
-                            <div className="max-w-xs overflow-hidden text-ellipsis">{entry.answer}</div>
-                          )}
-                        </TableCell>
-                        <TableCell className="align-top">{entry.replicaUUID.substring(0, 8)}...</TableCell>
-                        <TableCell className="align-top">{new Date(entry.updatedAt).toLocaleDateString()}</TableCell>
-                        <TableCell className="align-top">
-                          {editingId === entry.id ? (
-                            <div className="flex space-x-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleUpdateEntry(entry.id)}
-                                className="h-8 w-8 text-green-600"
-                              >
-                                <Save className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={cancelEditing}
-                                className="h-8 w-8 text-red-600"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="flex space-x-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => startEditing(entry)}
-                                className="h-8 w-8 text-blue-600"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleDeleteEntry(entry.id)}
-                                className="h-8 w-8 text-red-600"
-                              >
-                                <Trash className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
+                  ))}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="create">
-          <Card className="border-mafia-200 dark:border-mafia-800">
-            <CardHeader className="bg-mafia-50 dark:bg-mafia-900/20 rounded-t-lg">
-              <CardTitle className="text-mafia-900 dark:text-mafia-300">Add Knowledge Entry</CardTitle>
-              <CardDescription>Create a new entry for your AI agent's knowledge base</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-4">
-              <div>
-                <label htmlFor="replicaUUID" className="block text-sm font-medium mb-1">
-                  Replica UUID
-                </label>
-                <Input
-                  id="replicaUUID"
-                  value={replicaUUID}
-                  onChange={(e) => setReplicaUUID(e.target.value)}
-                  placeholder="Enter replica UUID"
-                  className="border-mafia-300 focus-visible:ring-mafia-500"
-                />
-              </div>
-              <div>
-                <label htmlFor="question" className="block text-sm font-medium mb-1">
-                  Question
-                </label>
-                <Textarea
-                  id="question"
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
-                  placeholder="Enter a question or prompt"
-                  className="min-h-[100px] border-mafia-300 focus-visible:ring-mafia-500"
-                />
-              </div>
-              <div>
-                <label htmlFor="answer" className="block text-sm font-medium mb-1">
-                  Answer
-                </label>
-                <Textarea
-                  id="answer"
-                  value={answer}
-                  onChange={(e) => setAnswer(e.target.value)}
-                  placeholder="Enter the answer or response"
-                  className="min-h-[150px] border-mafia-300 focus-visible:ring-mafia-500"
-                />
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button onClick={handleCreateEntry} className="bg-mafia-600 hover:bg-mafia-700">
-                <Plus className="mr-2 h-4 w-4" />
-                Create Entry
-              </Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="upload">
-          <Card className="border-mafia-200 dark:border-mafia-800">
-            <CardHeader className="bg-mafia-50 dark:bg-mafia-900/20 rounded-t-lg">
-              <CardTitle className="text-mafia-900 dark:text-mafia-300">Upload Training Files</CardTitle>
-              <CardDescription>Upload documents to train your AI agent</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-4">
-              <div>
-                <label htmlFor="replicaUUID" className="block text-sm font-medium mb-1">
-                  Replica UUID
-                </label>
-                <Input
-                  id="replicaUUID"
-                  value={replicaUUID}
-                  onChange={(e) => setReplicaUUID(e.target.value)}
-                  placeholder="Enter replica UUID"
-                  className="border-mafia-300 focus-visible:ring-mafia-500"
-                />
-              </div>
-              <div>
-                <label htmlFor="file" className="block text-sm font-medium mb-1">
-                  Training File
-                </label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="file"
-                    type="file"
-                    onChange={handleFileChange}
-                    className="border-mafia-300 focus-visible:ring-mafia-500"
-                  />
-                  {file && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <FileText className="h-4 w-4" />
-                      <span className="truncate max-w-[200px]">{file.name}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-              {uploadProgress > 0 && (
-                <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                  <div className="bg-mafia-600 h-2.5 rounded-full" style={{ width: `${uploadProgress}%` }}></div>
-                </div>
-              )}
-            </CardContent>
-            <CardFooter>
-              <Button
-                onClick={handleFileUpload}
-                className="bg-mafia-600 hover:bg-mafia-700"
-                disabled={!file || uploadProgress > 0}
-              >
-                <Upload className="mr-2 h-4 w-4" />
-                Upload File
-              </Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

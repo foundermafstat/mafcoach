@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -37,69 +37,60 @@ export default function ReplicasPage() {
   const { toast } = useToast()
 
   // Fetch replicas
-  useEffect(() => {
-    const fetchReplicas = async () => {
-      try {
-        setLoading(true)
+  const fetchReplicas = useCallback(async () => {
+    try {
+      setLoading(true)
+      console.log('Fetching replicas...');
 
-        // Try to fetch from the API
-        try {
-          const response = await fetch("https://api.sensay.io/v1/replicas", {
-            // Add headers if needed
-            headers: {
-              "Content-Type": "application/json",
-              // Add any auth headers if required
-              // "Authorization": `Bearer ${apiKey}`
-            },
-          })
+      const response = await fetch("/api/sensay/replicas")
+      console.log(`Response status: ${response.status} ${response.statusText}`);
 
-          if (response.ok) {
-            const data = await response.json()
-            setReplicas(data.replicas || [])
-            return
-          }
-        } catch (apiError) {
-          console.error("API Error:", apiError)
-          // Continue to fallback
-        }
-
-        // Fallback to mock data if API call fails
-        console.log("Using mock data due to API connection issues")
-        const mockReplicas = [
-          {
-            id: "mock-replica-123",
-            name: "Mafia Game Assistant",
-            description: "An AI assistant that helps users learn about the Mafia game rules, roles, and strategies.",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          {
-            id: "mock-replica-456",
-            name: "Game Moderator",
-            description: "An AI that can help moderate Mafia games by managing roles and game flow.",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-        ]
-
-        setReplicas(mockReplicas)
-      } catch (error) {
-        console.error("Error in fetchReplicas:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load replicas. Using mock data instead.",
-          variant: "destructive",
-        })
-
-        // Set empty array as fallback
-        setReplicas([])
-      } finally {
-        setLoading(false)
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error('Error response:', errorData);
+        throw new Error(errorData.error || "Failed to fetch replicas")
       }
-    }
 
-    fetchReplicas()
+      const data = await response.json()
+      console.log('Received data:', data);
+      
+      // Обрабатываем различные структуры ответа
+      let replicasList: Replica[] = [];
+      
+      if (Array.isArray(data)) {
+        console.log('Data is an array, using directly');
+        replicasList = data;
+      } else if (data.replicas && Array.isArray(data.replicas)) {
+        console.log('Found replicas array in response');
+        replicasList = data.replicas;
+      } else if (data.items && Array.isArray(data.items)) {
+        console.log('Found items array in response');
+        replicasList = data.items;
+      } else {
+        console.warn('Unexpected data structure:', data);
+        // Если структура не соответствует ожидаемой, возвращаем пустой массив
+        replicasList = [];
+      }
+      
+      console.log(`Setting ${replicasList.length} replicas`);
+      setReplicas(replicasList);
+    } catch (error) {
+      console.error("Error in fetchReplicas:", error)
+      toast({
+        title: "Error",
+        description: `Failed to load replicas: ${error instanceof Error ? error.message : "Unknown error"}`,
+        variant: "destructive",
+      })
+      setReplicas([])
+    } finally {
+      setLoading(false)
+    }
   }, [toast])
+
+  // Initial fetch
+  useEffect(() => {
+    fetchReplicas()
+  }, [fetchReplicas])
 
   // Create replica
   const handleCreateReplica = async () => {
@@ -113,7 +104,7 @@ export default function ReplicasPage() {
     }
 
     try {
-      const response = await fetch("https://api.sensay.io/v1/replicas", {
+      const response = await fetch("/api/sensay/replicas", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -124,11 +115,14 @@ export default function ReplicasPage() {
         }),
       })
 
-      if (!response.ok) throw new Error("Failed to create replica")
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to create replica")
+      }
 
-      const data = await response.json()
+      const newReplica = await response.json()
 
-      setReplicas((prev) => [...prev, data.replica])
+      setReplicas((prev) => [newReplica, ...prev])
       setName("")
       setDescription("")
 
@@ -140,7 +134,7 @@ export default function ReplicasPage() {
       console.error("Error creating replica:", error)
       toast({
         title: "Error",
-        description: "Failed to create replica. Please try again.",
+        description: `Failed to create replica: ${error instanceof Error ? error.message : "Unknown error"}`,
         variant: "destructive",
       })
     }
@@ -158,7 +152,7 @@ export default function ReplicasPage() {
     }
 
     try {
-      const response = await fetch(`https://api.sensay.io/v1/replicas/${id}`, {
+      const response = await fetch(`/api/sensay/replicas?id=${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -169,14 +163,18 @@ export default function ReplicasPage() {
         }),
       })
 
-      if (!response.ok) throw new Error("Failed to update replica")
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to update replica")
+      }
+
+      const updatedReplica = await response.json()
 
       setReplicas((prev) =>
-        prev.map((r) =>
-          r.id === id ? { ...r, name: editName, description: editDescription, updatedAt: new Date().toISOString() } : r,
-        ),
+        prev.map((replica) =>
+          replica.id === id ? updatedReplica : replica
+        )
       )
-
       setEditingId(null)
 
       toast({
@@ -187,7 +185,7 @@ export default function ReplicasPage() {
       console.error("Error updating replica:", error)
       toast({
         title: "Error",
-        description: "Failed to update replica. Please try again.",
+        description: `Failed to update replica: ${error instanceof Error ? error.message : "Unknown error"}`,
         variant: "destructive",
       })
     }
@@ -196,13 +194,16 @@ export default function ReplicasPage() {
   // Delete replica
   const handleDeleteReplica = async (id: string) => {
     try {
-      const response = await fetch(`https://api.sensay.io/v1/replicas/${id}`, {
+      const response = await fetch(`/api/sensay/replicas?id=${id}`, {
         method: "DELETE",
       })
 
-      if (!response.ok) throw new Error("Failed to delete replica")
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to delete replica")
+      }
 
-      setReplicas((prev) => prev.filter((r) => r.id !== id))
+      setReplicas((prev) => prev.filter((replica) => replica.id !== id))
 
       toast({
         title: "Success",
@@ -212,7 +213,7 @@ export default function ReplicasPage() {
       console.error("Error deleting replica:", error)
       toast({
         title: "Error",
-        description: "Failed to delete replica. Please try again.",
+        description: `Failed to delete replica: ${error instanceof Error ? error.message : "Unknown error"}`,
         variant: "destructive",
       })
     }
@@ -234,31 +235,31 @@ export default function ReplicasPage() {
   const copyToClipboard = (id: string) => {
     navigator.clipboard.writeText(id)
     toast({
-      title: "Copied",
+      title: "Copied!",
       description: "Replica ID copied to clipboard.",
     })
   }
 
   return (
-    <div className="container mx-auto py-6">
+    <div className="container mx-auto py-6 overflow-auto" style={{ maxHeight: '100vh' }}>
       <h1 className="text-3xl font-bold mb-6 text-mafia-900 dark:text-mafia-300">AI Replicas</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2">
+      <div className="space-y-8">
+        <div>
           <Card className="border-mafia-200 dark:border-mafia-800">
             <CardHeader className="bg-mafia-50 dark:bg-mafia-900/20 rounded-t-lg">
-              <CardTitle className="text-mafia-900 dark:text-mafia-300">Your Replicas</CardTitle>
-              <CardDescription>Manage your AI replicas</CardDescription>
+              <CardTitle className="text-mafia-900 dark:text-mafia-300">Manage Replicas</CardTitle>
+              <CardDescription>View and manage your AI replicas</CardDescription>
             </CardHeader>
-            <CardContent className="p-0">
-              <Table>
+            <CardContent className="overflow-auto" style={{ maxHeight: '60vh' }}>
+              <Table className="overflow-auto">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead>ID</TableHead>
                     <TableHead>Created</TableHead>
-                    <TableHead className="w-[100px]">Actions</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -271,13 +272,13 @@ export default function ReplicasPage() {
                   ) : replicas.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-4">
-                        No replicas found.
+                        No replicas found. Create a new one below.
                       </TableCell>
                     </TableRow>
                   ) : (
                     replicas.map((replica) => (
                       <TableRow key={replica.id}>
-                        <TableCell>
+                        <TableCell className="font-medium">
                           {editingId === replica.id ? (
                             <Input
                               value={editName}
@@ -293,15 +294,15 @@ export default function ReplicasPage() {
                             <Textarea
                               value={editDescription}
                               onChange={(e) => setEditDescription(e.target.value)}
-                              className="min-h-[80px] border-mafia-300 focus-visible:ring-mafia-500"
+                              className="border-mafia-300 focus-visible:ring-mafia-500 min-h-[80px]"
                             />
                           ) : (
-                            <div className="max-w-xs overflow-hidden text-ellipsis">{replica.description}</div>
+                            replica.description
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-1">
-                            <span className="truncate max-w-[80px]">{replica.id}</span>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs font-mono truncate max-w-[120px]">{replica.id}</span>
                             <Button
                               variant="ghost"
                               size="icon"
@@ -313,22 +314,23 @@ export default function ReplicasPage() {
                           </div>
                         </TableCell>
                         <TableCell>{new Date(replica.createdAt).toLocaleDateString()}</TableCell>
-                        <TableCell>
+                        <TableCell className="text-right">
                           {editingId === replica.id ? (
-                            <div className="flex space-x-1">
+                            <div className="flex justify-end space-x-2">
                               <Button
-                                variant="ghost"
-                                size="icon"
+                                variant="outline"
+                                size="sm"
                                 onClick={() => handleUpdateReplica(replica.id)}
-                                className="h-8 w-8 text-green-600"
+                                className="h-8 text-green-600"
                               >
-                                <Save className="h-4 w-4" />
+                                <Save className="h-4 w-4 mr-1" />
+                                Save
                               </Button>
                               <Button
                                 variant="ghost"
-                                size="icon"
+                                size="sm"
                                 onClick={cancelEditing}
-                                className="h-8 w-8 text-red-600"
+                                className="h-8"
                               >
                                 <X className="h-4 w-4" />
                               </Button>

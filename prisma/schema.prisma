@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Существующие модели
+model Validation {
+  id                  String              @id
+  replicaSubmissionId String              @unique
+  testCases           Json
+  sensayValidation    Json
+  openaiValidation    Json
+  averageScores       Json
+  finalVerdict        String
+  comment             String
+  createdAt           DateTime            @default(now())
+  replica_submissions replica_submissions @relation(fields: [replicaSubmissionId], references: [id])
+}
+
+model replica_submissions {
+  id                 String      @id
+  name               String
+  description        String
+  replicaApiEndpoint String
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime
+  status             String
+  Validation         Validation?
+}
+
+// Новые модели для хранения настроек API Sensay
+
+// Модель для хранения настроек API
+model ApiSettings {
+  id                String        @id @default(cuid())
+  name              String        @unique // Имя набора настроек
+  apiKey            String        // Ключ API
+  organizationId    String        // ID организации
+  userId            String        // ID пользователя
+  replicaUuid       String        // UUID реплики
+  isActive          Boolean       @default(true) // Флаг активности этого набора настроек
+  createdAt         DateTime      @default(now()) // Дата создания
+  updatedAt         DateTime      @updatedAt // Дата обновления
+  
+  chatSessions      ChatSession[] // Связь с сессиями чата
+  replicas          Replica[]     // Связь с репликами
+  
+  @@map("api_settings")
+}
+
+// Модель для хранения сессий чата
+model ChatSession {
+  id                String        @id @default(cuid())
+  apiSettingsId     String        // ID используемых настроек API
+  messages          ChatMessage[] // Сообщения в чате
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  apiSettings       ApiSettings   @relation(fields: [apiSettingsId], references: [id])
+  
+  @@map("chat_sessions")
+}
+
+// Модель для хранения сообщений чата
+model ChatMessage {
+  id                String        @id @default(cuid())
+  sessionId         String        // ID сессии чата
+  role              String        // Роль (user или assistant)
+  content           String        // Содержание сообщения
+  timestamp         DateTime      @default(now())
+  
+  session           ChatSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  @@map("chat_messages")
+}
+
+// Модель для хранения реплик Sensay
+model Replica {
+  id                String        @id // UUID реплики из Sensay API
+  name              String        // Название реплики
+  description       String        // Описание реплики
+  apiSettingsId     String        // ID используемых настроек API
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  apiSettings       ApiSettings   @relation(fields: [apiSettingsId], references: [id])
+  
+  @@map("replicas")
+}
