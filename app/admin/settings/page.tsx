@@ -203,27 +203,27 @@ export default function SettingsPage() {
       paddingBottom: "100px"
     }}>
       <div className="container py-10">
-        <h1 className="text-3xl font-bold mb-6">Управление настройками API Sensay</h1>
+        <h1 className="text-3xl font-bold mb-6">API Sensay Settings Management</h1>
         
         <div className="grid gap-8 grid-cols-1 md:grid-cols-1 lg:grid-cols-2">
           {/* Форма для создания/редактирования настроек */}
           <Card className="mb-8">
             <CardHeader>
               <CardTitle>
-                {newSetting.name ? `Редактирование "${newSetting.name}"` : 'Новые настройки API'}
+                {newSetting.name ? `Edit "${newSetting.name}"` : 'New API Settings'}
               </CardTitle>
               <CardDescription>
-                Введите параметры для подключения к Sensay API
+                Enter parameters for connecting to Sensay API
               </CardDescription>
             </CardHeader>
             
             <form onSubmit={saveSettings}>
               <CardContent className="space-y-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="name">Название настроек</Label>
+                  <Label htmlFor="name">Settings Name</Label>
                   <Input
                     id="name"
-                    placeholder="Например: Основные настройки API"
+                    placeholder="For example: Main API Settings"
                     value={newSetting.name}
                     onChange={(e) => setNewSetting({...newSetting, name: e.target.value})}
                     required
@@ -231,10 +231,10 @@ export default function SettingsPage() {
                 </div>
                 
                 <div className="grid gap-2">
-                  <Label htmlFor="apiKey">API ключ (SENSAY_API_KEY)</Label>
+                  <Label htmlFor="apiKey">API key (SENSAY_API_KEY)</Label>
                   <Input
                     id="apiKey"
-                    placeholder="Ключ API Sensay"
+                    placeholder="Sensay API key"
                     value={newSetting.apiKey}
                     onChange={(e) => setNewSetting({...newSetting, apiKey: e.target.value})}
                     required
@@ -242,10 +242,10 @@ export default function SettingsPage() {
                 </div>
                 
                 <div className="grid gap-2">
-                  <Label htmlFor="organizationId">ID организации (SENSAY_ORG_ID)</Label>
+                  <Label htmlFor="organizationId">Organization ID (SENSAY_ORG_ID)</Label>
                   <Input
                     id="organizationId"
-                    placeholder="ID организации в Sensay"
+                    placeholder="Organization ID in Sensay"
                     value={newSetting.organizationId}
                     onChange={(e) => setNewSetting({...newSetting, organizationId: e.target.value})}
                     required
@@ -253,10 +253,10 @@ export default function SettingsPage() {
                 </div>
                 
                 <div className="grid gap-2">
-                  <Label htmlFor="userId">ID пользователя (SENSAY_USER_ID)</Label>
+                  <Label htmlFor="userId">User ID (SENSAY_USER_ID)</Label>
                   <Input
                     id="userId"
-                    placeholder="ID пользователя в Sensay"
+                    placeholder="User ID in Sensay"
                     value={newSetting.userId}
                     onChange={(e) => setNewSetting({...newSetting, userId: e.target.value})}
                     required
@@ -264,10 +264,10 @@ export default function SettingsPage() {
                 </div>
                 
                 <div className="grid gap-2">
-                  <Label htmlFor="replicaUuid">UUID реплики (SENSAY_REPLICA_UUID)</Label>
+                  <Label htmlFor="replicaUuid">UUID Replica (SENSAY_REPLICA_UUID)</Label>
                   <Input
                     id="replicaUuid"
-                    placeholder="UUID реплики в Sensay"
+                    placeholder="UUID Replica in Sensay"
                     value={newSetting.replicaUuid}
                     onChange={(e) => setNewSetting({...newSetting, replicaUuid: e.target.value})}
                     required
@@ -280,7 +280,7 @@ export default function SettingsPage() {
                     checked={newSetting.isActive}
                     onCheckedChange={(checked) => setNewSetting({...newSetting, isActive: checked})}
                   />
-                  <Label htmlFor="isActive">Активировать эти настройки</Label>
+                  <Label htmlFor="isActive">Activate these settings</Label>
                 </div>
               </CardContent>
               
@@ -295,15 +295,15 @@ export default function SettingsPage() {
                     isActive: true
                   })
                 }}>
-                  Очистить
+                  Clear
                 </Button>
                 
                 <div className="flex space-x-2">
                   <Button variant="secondary" type="button" onClick={loadFromEnv}>
-                    Загрузить из .env
+                    Load from .env
                   </Button>
                   <Button type="submit" disabled={loading}>
-                    {loading ? 'Сохранение...' : 'Сохранить настройки'}
+                    {loading ? 'Saving...' : 'Save settings'}
                   </Button>
                 </div>
               </CardFooter>
@@ -313,17 +313,17 @@ export default function SettingsPage() {
           {/* Список существующих настроек */}
           <Card className="mb-8">
             <CardHeader>
-              <CardTitle>Существующие настройки</CardTitle>
+              <CardTitle>Existing settings</CardTitle>
               <CardDescription>
-                Список всех сохраненных настроек API
+                List of all saved API settings
               </CardDescription>
             </CardHeader>
             
             <CardContent style={{ maxHeight: "400px", overflowY: "auto" }}>
               {loading ? (
-                <p className="text-center py-4">Загрузка настроек...</p>
+                <p className="text-center py-4">Loading settings...</p>
               ) : settings.length === 0 ? (
-                <p className="text-center py-4">Настройки API не найдены</p>
+                <p className="text-center py-4">No API settings found</p>
               ) : (
                 <div className="space-y-6">
                   {settings.map((setting) => (
@@ -333,9 +333,9 @@ export default function SettingsPage() {
                           <h3 className="text-lg font-medium">{setting.name}</h3>
                           <p className="text-sm text-muted-foreground">
                             {setting.isActive ? (
-                              <span className="text-green-600 font-medium">Активно</span>
+                              <span className="text-green-600 font-medium">Active</span>
                             ) : (
-                              <span className="text-gray-500">Неактивно</span>
+                              <span className="text-gray-500">Inactive</span>
                             )}
                           </p>
                         </div>
@@ -346,7 +346,7 @@ export default function SettingsPage() {
                             size="sm"
                             onClick={() => editSettings(setting)}
                           >
-                            Редактировать
+                            Edit
                           </Button>
                           
                           {!setting.isActive && (
@@ -355,7 +355,7 @@ export default function SettingsPage() {
                               size="sm"
                               onClick={() => activateSettings(setting)}
                             >
-                              Активировать
+                              Activate
                             </Button>
                           )}
                           
@@ -364,29 +364,29 @@ export default function SettingsPage() {
                             size="sm"
                             onClick={() => deleteSettings(setting.name)}
                           >
-                            Удалить
+                            Delete
                           </Button>
                         </div>
                       </div>
                       
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                         <div>
-                          <p className="font-medium">API ключ:</p>
+                          <p className="font-medium">API key:</p>
                           <p className="truncate">{setting.apiKey.substring(0, 12)}...</p>
                         </div>
                         
                         <div>
-                          <p className="font-medium">ID организации:</p>
+                          <p className="font-medium">Organization ID:</p>
                           <p className="truncate">{setting.organizationId}</p>
                         </div>
                         
                         <div>
-                          <p className="font-medium">ID пользователя:</p>
+                          <p className="font-medium">User ID:</p>
                           <p className="truncate">{setting.userId}</p>
                         </div>
                         
                         <div>
-                          <p className="font-medium">UUID реплики:</p>
+                          <p className="font-medium">UUID Replica:</p>
                           <p className="truncate">{setting.replicaUuid}</p>
                         </div>
                       </div>
@@ -405,7 +405,7 @@ export default function SettingsPage() {
                 onClick={fetchSettings}
                 disabled={loading}
               >
-                Обновить список
+                Update list
               </Button>
             </CardFooter>
           </Card>
