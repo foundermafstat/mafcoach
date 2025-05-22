@@ -20,14 +20,25 @@ export default function Header() {
   const pathname = usePathname()
   const { isAIChatVisible, toggleAIChat, playerName, playerLevel } = usePlayer()
 
-  const navItems = [
-    { name: "Home", path: "/" },
-    { name: "Rules", path: "/rules" },
-    { name: "Roles", path: "/roles" },
+  // Navigation items divided by categories
+  const mafiaTutorialItems = [
+    { name: "Game Rules", path: "/rules" },
+    { name: "Game Roles", path: "/roles" },
     { name: "Strategies", path: "/strategies" },
     { name: "Game Board", path: "/game-board" },
-    { name: "Training", path: "/training" },
+  ]
+
+  const adminItems = [
+    { name: "API Settings", path: "/admin/settings" },
+    { name: "API Keys", path: "/api-keys" },
+    { name: "Database Management", path: "/admin/database" },
+  ]
+
+  const sensayTrainingItems = [
+    { name: "AI Training", path: "/training" },
     { name: "Replicas", path: "/replicas" },
+    { name: "Chat History", path: "/chat-history" },
+    { name: "Training Stats", path: "/training-stats" },
   ]
 
   const progressPercentage = (playerLevel.currentXP / playerLevel.requiredXP) * 100
@@ -39,17 +50,80 @@ export default function Header() {
           <h1 className="text-xl font-bold">MafCoach</h1>
 
           <nav className="hidden md:flex items-center gap-6">
-            {navItems.map((item) => (
-              <Link
-                key={item.path}
-                href={item.path}
-                className={`text-sm font-medium transition-colors hover:text-mafia-300 ${
-                  pathname === item.path ? "text-mafia-300" : "text-white"
-                }`}
-              >
-                {item.name}
-              </Link>
-            ))}
+            <Link
+              href="/"
+              className={`text-sm font-medium transition-colors hover:text-mafia-300 ${
+                pathname === "/" ? "text-mafia-300" : "text-white"
+              }`}
+            >
+              Home
+            </Link>
+
+            {/* Dropdown menu for mafia tutorial */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="flex items-center gap-1 text-white hover:bg-mafia-800 hover:text-white px-2 py-1 h-auto">
+                  <span className="text-sm font-medium">Mafia Tutorial</span>
+                  <ChevronDown size={14} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                {mafiaTutorialItems.map((item) => (
+                  <DropdownMenuItem key={item.path} asChild>
+                    <Link
+                      href={item.path}
+                      className={pathname === item.path ? "bg-mafia-100 dark:bg-mafia-800" : ""}
+                    >
+                      {item.name}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Dropdown menu for administration */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="flex items-center gap-1 text-white hover:bg-mafia-800 hover:text-white px-2 py-1 h-auto">
+                  <span className="text-sm font-medium">Administration</span>
+                  <ChevronDown size={14} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                {adminItems.map((item) => (
+                  <DropdownMenuItem key={item.path} asChild>
+                    <Link
+                      href={item.path}
+                      className={pathname === item.path ? "bg-mafia-100 dark:bg-mafia-800" : ""}
+                    >
+                      {item.name}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Dropdown menu for AI training through Sensay API */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="flex items-center gap-1 text-white hover:bg-mafia-800 hover:text-white px-2 py-1 h-auto">
+                  <span className="text-sm font-medium">AI Training</span>
+                  <ChevronDown size={14} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                {sensayTrainingItems.map((item) => (
+                  <DropdownMenuItem key={item.path} asChild>
+                    <Link
+                      href={item.path}
+                      className={pathname === item.path ? "bg-mafia-100 dark:bg-mafia-800" : ""}
+                    >
+                      {item.name}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </nav>
         </div>
 
@@ -65,20 +139,8 @@ export default function Header() {
           </Button>
 
           <Button variant="ghost" size="icon" className="text-white hover:bg-mafia-800 hover:text-white" asChild>
-            <Link href="/chat-history" title="Chat History">
-              <History className="h-5 w-5" />
-            </Link>
-          </Button>
-
-          <Button variant="ghost" size="icon" className="text-white hover:bg-mafia-800 hover:text-white" asChild>
             <Link href="/game-board" title="Game Board">
               <LayoutGrid className="h-5 w-5" />
-            </Link>
-          </Button>
-
-          <Button variant="ghost" size="icon" className="text-white hover:bg-mafia-800 hover:text-white" asChild>
-            <Link href="/api-keys" title="API Keys">
-              <Database className="h-5 w-5" />
             </Link>
           </Button>
 

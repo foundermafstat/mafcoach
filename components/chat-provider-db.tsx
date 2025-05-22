@@ -1,10 +1,7 @@
 "use client"
 
 import { createContext, useState, useContext, type ReactNode, useEffect } from "react"
-import { sendMessageToReplicaDirect } from "@/app/lib/api/sensay-direct"
-
-// Используем переменные окружения для клиентской части
-const SENSAY_REPLICA_UUID = process.env.NEXT_PUBLIC_SENSAY_REPLICA_UUID || ''
+import { SensayApi } from "@/app/lib/api/sensay-api"
 
 type Message = {
   id: string
@@ -25,15 +22,36 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined)
 const WELCOME_MESSAGE = {
   id: "welcome-message",
   role: "assistant" as const,
-  content: "Hello! I'm your Mafia game assistant. How can I help you learn about the game today?",
+  content: "Привет! Я ассистент по игре в мафию. Как я могу помочь вам сегодня?",
   timestamp: Date.now(),
 }
 
 export default function ChatProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE])
   const [isLoading, setIsLoading] = useState(false)
+  const [sensayApi, setSensayApi] = useState<SensayApi | null>(null)
 
-  // Load chat history from localStorage on mount
+  // Инициализируем Sensay API при монтировании компонента
+  useEffect(() => {
+    const initApi = async () => {
+      try {
+        // Создаем экземпляр SensayApi с активными настройками из базы данных
+        const api = await SensayApi.createWithActiveSettings();
+        if (api) {
+          setSensayApi(api);
+          console.log('SensayApi успешно инициализирован');
+        } else {
+          console.error('Не удалось инициализировать SensayApi: настройки не найдены');
+        }
+      } catch (error) {
+        console.error('Ошибка при инициализации SensayApi:', error);
+      }
+    };
+
+    initApi();
+  }, []);
+
+  // Загружаем историю чата из localStorage при монтировании
   useEffect(() => {
     const savedMessages = localStorage.getItem("chatHistory")
     if (savedMessages) {
@@ -43,12 +61,12 @@ export default function ChatProvider({ children }: { children: ReactNode }) {
           setMessages(parsedMessages)
         }
       } catch (error) {
-        console.error("Error loading chat history:", error)
+        console.error("Ошибка при загрузке истории чата:", error)
       }
     }
   }, [])
 
-  // Save chat history to localStorage when it changes
+  // Сохраняем историю чата в localStorage при изменении
   useEffect(() => {
     localStorage.setItem("chatHistory", JSON.stringify(messages))
   }, [messages])
@@ -65,51 +83,50 @@ export default function ChatProvider({ children }: { children: ReactNode }) {
     if (message.role === "user") {
       setIsLoading(true)
       try {
-        // Используем UUID реплики из переменных окружения
-        console.log('Using replica UUID from env:', SENSAY_REPLICA_UUID);
+        // Проверяем, инициализирован ли SensayApi
+        if (!sensayApi) {
+          throw new Error("SensayApi не инициализирован");
+        }
+        
+        console.log('Отправка сообщения через SensayApi');
         
         try {
-          // Send the message to the Sensay replica using direct API
-          // Обратите внимание на порядок параметров: content, replicaUuid, skipChatHistory, userId
-          const response = await sendMessageToReplicaDirect(
-            message.content,
-            SENSAY_REPLICA_UUID,
-            false // Don't skip chat history
-          )
+          // Отправляем сообщение через SensayApi
+          const response = await sensayApi.sendMessage(message.content, false);
           
-          // Add the AI response
+          // Добавляем ответ ИИ
           setMessages((prev) => [
             ...prev,
             {
               id: Date.now().toString(),
               role: "assistant",
-              content: response.content || "I'm having trouble processing your request. Please try again.",
+              content: response.content || "У меня возникли проблемы с обработкой вашего запроса. Пожалуйста, попробуйте снова.",
               timestamp: Date.now(),
             },
           ])
         } catch (apiError) {
-          console.error("Sensay API Error:", apiError)
+          console.error("Ошибка Sensay API:", apiError)
           
-          // Handle API error with a user-friendly message
+          // Обрабатываем ошибку API с дружественным сообщением
           setMessages((prev) => [
             ...prev,
             {
               id: Date.now().toString(),
               role: "assistant",
-              content: "I'm currently experiencing connection issues with my knowledge base. Please try again in a moment.",
+              content: "В настоящее время у меня возникли проблемы с соединением с моей базой знаний. Пожалуйста, попробуйте еще раз через минуту.",
               timestamp: Date.now(),
             },
           ])
         }
       } catch (error) {
-        // Handle error
-        console.error("Error in chat:", error)
+        // Обрабатываем общую ошибку
+        console.error("Ошибка в чате:", error)
         setMessages((prev) => [
           ...prev,
           {
             id: Date.now().toString(),
             role: "assistant",
-            content: "Sorry, I encountered an error. Please try again.",
+            content: "Извините, произошла ошибка. Пожалуйста, попробуйте снова.",
             timestamp: Date.now(),
           },
         ])

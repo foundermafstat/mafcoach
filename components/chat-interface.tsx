@@ -7,12 +7,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useChat } from "./chat-provider"
 import { format } from "date-fns"
+import { useIsClient } from "@/app/lib/utils/use-is-client"
 
 export default function ChatInterface() {
   const { messages, addMessage, isLoading, clearChat } = useChat()
   const [input, setInput] = useState("")
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const isClient = useIsClient() // Определяем, выполняется ли код на клиенте
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -56,7 +58,10 @@ export default function ChatInterface() {
               >
                 <p className="text-sm">{message.content}</p>
                 <p className="text-xs mt-1 opacity-60">
-                  {format(new Date(message.timestamp || Date.now()), "MMM d, yyyy h:mm a")}
+                  {/* Форматировать дату только на клиенте, на сервере показать заглушку */}
+                  {isClient 
+                    ? format(new Date(message.timestamp), "MMM d, yyyy h:mm a")
+                    : ""}
                 </p>
               </div>
             </div>
