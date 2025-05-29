@@ -1,21 +1,27 @@
 # MAF Coach - Sensay AI Integration
 
-A Next.js application that integrates with the Sensay AI platform to provide conversational AI capabilities, training data management, and chat history tracking.
+A Next.js application that integrates with the Sensay AI platform to provide conversational AI capabilities, rich interactive chat experiences, training data management, and comprehensive chat history tracking. This application offers a modern UI for interacting with Sensay AI replicas, with features like global replica selection, Markdown rendering support, and persistent state management.
 
 ## Project Overview
 
-MAF Coach is a web application built with Next.js that leverages the Sensay AI platform to create and manage AI-powered conversations. The application allows users to:
+MAF Coach is a web application built with Next.js that leverages the Sensay AI platform to create and manage AI-powered conversations. The application features a modern UI with comprehensive Sensay AI integration, allowing users to:
 
-- Chat with AI replicas
-- Upload and manage training data
-- View and manage chat history
-- Monitor and improve AI performance
+- Chat with AI replicas using a rich, interactive interface with Markdown support
+- Select and switch between different AI replicas from a global header dropdown
+- Upload and manage training data for each replica
+- View, search, and manage comprehensive chat history with debugging information
+- Monitor and improve AI performance through analytics
+- Maintain consistent replica selection across different pages
+- Export and download chat sessions
 
 ## Tech Stack
 
 - **Frontend**: Next.js 15, React 19, Tailwind CSS, shadcn/ui
+- **Content Rendering**: react-markdown, remark-gfm, rehype-raw for Markdown support
+- **State Management**: React Context API for global state (replica selection, chat history)
 - **Backend**: Next.js API routes, Prisma ORM
 - **Database**: PostgreSQL (Neon)
+- **Storage**: LocalStorage for persistent state between sessions
 - **AI Platform**: Sensay AI
 
 ## Project Structure
@@ -26,22 +32,94 @@ mafcoach/
 │   ├── api/                   # API Routes
 │   │   └── sensay/            # Sensay API integration endpoints
 │   │       ├── chat-history/  # Chat history management
+│   │       ├── replicas/      # Replica management
 │   │       └── training/      # Training data management
-│   ├── chat-history/          # Chat history page
+│   ├── chat-history/          # Chat history page with debug info
+│   ├── replicas/              # Replica management page
 │   ├── training/              # Training data management page
 │   └── lib/                   # Shared utilities and API clients
 │       └── api/               # API client implementations
 │           ├── sensay.ts                  # Sensay SDK wrapper
-│           ├── sensay-chat-history-sdk.ts # Chat history client
+│           ├── sensay-chat-history.ts     # Chat history client
+│           ├── sensay-replicas.ts         # Replicas management
+│           ├── sensay-replicas-client.ts  # Client-side replica access
 │           ├── sensay-direct.ts           # Direct API implementation
 │           └── sensay-training.ts         # Training data client
 ├── components/                # Reusable UI components
+│   ├── chat-interface.tsx     # Main chat interface with Markdown support
+│   ├── chat-provider.tsx      # Chat state provider with replica integration
+│   ├── header.tsx             # Global header with replica selection
+│   ├── replica-context.tsx    # Global replica context provider
+│   └── replica-provider.tsx   # Replica provider wrapper
 ├── prisma/                    # Prisma ORM schema and migrations
 ├── public/                    # Static assets
 ├── sensay-sdk/                # Sensay SDK integration
 ├── .env                       # Environment variables
 └── README.md                  # Project documentation
 ```
+
+## Key Features
+
+### Global Replica Selection System
+
+The application implements a global replica selection system that allows users to select a replica from the header dropdown. This selection persists across different pages and browser sessions:
+
+```typescript
+// components/replica-context.tsx
+export function ReplicaProvider({ children }: { children: React.ReactNode }) {
+  const [selectedReplicaUuid, setSelectedReplicaUuid] = useState<string>("");
+  const [replicas, setReplicas] = useState<SensayReplica[]>([]);
+  
+  // Load saved replica from localStorage on initialization
+  useEffect(() => {
+    const savedUuid = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (savedUuid) {
+      setSelectedReplicaUuid(savedUuid);
+    }
+  }, []);
+
+  // Save selected replica to localStorage when it changes
+  useEffect(() => {
+    if (selectedReplicaUuid) {
+      localStorage.setItem(LOCAL_STORAGE_KEY, selectedReplicaUuid);
+    }
+  }, [selectedReplicaUuid]);
+}
+```
+
+This global context ensures consistency across the application and improves user experience by:
+
+- Maintaining the selected replica when navigating between pages
+- Restoring the previously selected replica on page reload
+- Providing a single source of truth for the current replica
+- Creating unique chat histories for each replica
+
+### Rich Markdown Rendering
+
+The chat interface supports rich Markdown rendering using `react-markdown` with plugins for GFM (GitHub Flavored Markdown) and raw HTML:
+
+```typescript
+// components/chat-interface.tsx
+<ReactMarkdown 
+  remarkPlugins={[remarkGfm]}
+  rehypePlugins={[rehypeRaw]}
+  components={{
+    p: ({node, ...props}) => <p className="text-sm my-2" {...props} />,
+    h1: ({node, ...props}) => <h1 className="text-xl font-bold my-3" {...props} />,
+    h2: ({node, ...props}) => <h2 className="text-lg font-bold my-2" {...props} />,
+    // Additional component styling...
+  }}
+>
+  {message.content}
+</ReactMarkdown>
+```
+
+This enables rich formatting in AI responses, including:
+
+- Headers, lists, and tables
+- Code blocks with syntax highlighting
+- Links and images
+- Blockquotes and emphasis
 
 ## Sensay API Integration
 
@@ -220,19 +298,61 @@ NEXT_PUBLIC_SENSAY_REPLICA_UUID="your-default-replica-uuid"
 DATABASE_URL="your-database-connection-string"
 ```
 
+### Enhanced Chat History Management
+
+The application provides comprehensive chat history management with advanced features:
+
+- Per-replica chat history storage in localStorage
+- Detailed debug information for API calls
+- Status tracking for each chat session
+- Export and download functionality for chat histories
+- Ability to delete individual chat sessions
+
+```typescript
+// In chat-provider.tsx
+useEffect(() => {
+  if (selectedReplica) {
+    // Create unique storage key for each replica
+    setChatStorageKey(`chatHistory_${selectedReplicaUuid}`);
+    
+    // Restore chat history from localStorage
+    const savedMessages = localStorage.getItem(chatStorageKey);
+    if (savedMessages) {
+      try {
+        const parsedMessages = JSON.parse(savedMessages);
+        if (Array.isArray(parsedMessages) && parsedMessages.length > 0) {
+          setMessages(parsedMessages);
+        }
+      } catch (error) {
+        console.error("Error loading chat history:", error);
+      }
+    }
+  }
+}, [selectedReplica, selectedReplicaUuid, chatStorageKey]);
+```
+
+The chat history interface displays detailed information including:
+
+- Message timestamps
+- Message role (user/assistant)
+- Status of chat sessions (COMPLETED, PROCESSING, FAILED)
+- Full conversation content with Markdown rendering
+
 ## Getting Started
 
 1. Clone the repository
 2. Install dependencies:
    ```
-   npm install
+   pnpm install
    ```
 3. Set up environment variables by creating a `.env` file based on the example above
 4. Run the development server:
    ```
-   npm run dev
+   pnpm run dev
    ```
 5. Access the application at `http://localhost:3000`
+6. Select a replica from the header dropdown to begin chatting
+7. Use Markdown formatting in messages to take advantage of rich text capabilities
 
 ## Authentication Setup
 

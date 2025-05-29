@@ -9,10 +9,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Plus, Trash, Edit, Save, X, Upload, FileText, RefreshCcw, AlertCircle, Eye } from "lucide-react"
+import { Plus, Trash, Edit, Save, X, Upload, FileText, RefreshCcw, AlertCircle, Eye, Database, Bot } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-// import { SensayTrainingService } from "@/app/lib/api/sensay-training"
+import { useReplica } from "@/components/replica-provider"
+// Импорт функции статистики удален, так как API не поддерживает этот эндпоинт
 
 // Using the actual Sensay API types
 type KnowledgeEntry = {
@@ -36,14 +37,17 @@ export default function TrainingPage() {
   const [title, setTitle] = useState("")
   const [content, setContent] = useState("")
   const [description, setDescription] = useState("")
-  const [replicaUUID, setReplicaUUID] = useState("")
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editTitle, setEditTitle] = useState("")
   const [editContent, setEditContent] = useState("")
   const [editDescription, setEditDescription] = useState("")
   const [file, setFile] = useState<File | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
-  // Используем API-маршруты вместо прямого доступа к сервису
+  
+  // Use global replica context instead of local state
+  const { selectedReplicaUuid: replicaUUID, selectedReplica } = useReplica()
+  // Состояния для статистики удалены, так как API не поддерживает этот эндпоинт
+  
   const { toast } = useToast()
 
   // Fetch knowledge entries
@@ -57,7 +61,12 @@ export default function TrainingPage() {
 
       // Fetch entries from the API via API routes
       try {
-        const response = await fetch('/api/sensay/training')
+        // Используем replicaUUID для фильтрации данных, если он задан
+        const url = replicaUUID 
+          ? `/api/sensay/training?replica_uuid=${replicaUUID}` 
+          : '/api/sensay/training';
+          
+        const response = await fetch(url)
         
         if (!response.ok) {
           const errorData = await response.json()
@@ -88,12 +97,23 @@ export default function TrainingPage() {
       setRefreshing(false)
       setLoading(false)
     }
-  }, [toast])
+  }, [replicaUUID, toast])
+
+  // Функция для получения статистики тренировок удалена, так как API не поддерживает этот эндпоинт
 
   // Initial fetch
   useEffect(() => {
-    fetchEntries(false)
-  }, [fetchEntries])
+    fetchEntries(false);
+  }, [fetchEntries]);
+  
+  // Обновляем данные при смене реплики
+  useEffect(() => {
+    if (replicaUUID) {
+      fetchEntries(true);
+    }
+  }, [replicaUUID, fetchEntries]);
+  
+  // useEffect для получения статистики удален, так как API не поддерживает этот эндпоинт
   
   // Function to refresh entries
   const handleRefresh = () => {
@@ -445,6 +465,14 @@ export default function TrainingPage() {
     }
   }
 
+  // Форматирование размера данных в читаемый вид
+  const formatDataSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  };
+
   return (
     <div className="container mx-auto py-8 pb-32" style={{ height: "calc(100vh - 60px)", overflowY: "auto" }}>
       <div className="space-y-6">
@@ -476,20 +504,26 @@ export default function TrainingPage() {
               </CardHeader>
               <CardContent className="space-y-4 pt-4">
                 <div>
-                  <label htmlFor="replicaUUID" className="block text-sm font-medium mb-1">
-                    Replica UUID
+                  <label htmlFor="replicaInfo" className="block text-sm font-medium mb-1">
+                    Active Replica
                   </label>
-                  <Input
-                    id="replicaUUID"
-                    value={replicaUUID}
-                    onChange={(e) => setReplicaUUID(e.target.value)}
-                    placeholder="Enter replica UUID"
-                    className="border-mafia-300 focus-visible:ring-mafia-500"
-                  />
+                  <div className="flex items-center gap-2 p-2 border rounded-md border-mafia-300 bg-mafia-50 dark:bg-mafia-900/20 dark:border-mafia-700">
+                    <Bot className="h-5 w-5 text-mafia-500" />
+                    {selectedReplica ? (
+                      <div>
+                        <span className="font-medium">{selectedReplica.name}</span>
+                        <span className="ml-2 text-xs opacity-70">({selectedReplica.type})</span>
+                      </div>
+                    ) : (
+                      <div className="text-mafia-500 italic">
+                        No replica selected. Please select a replica from the header dropdown.
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label htmlFor="title" className="block text-sm font-medium mb-1">
-                    Title
+                    Title (optional)
                   </label>
                   <Input
                     id="title"
@@ -507,13 +541,13 @@ export default function TrainingPage() {
                     id="content"
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
-                    placeholder="Enter the content you want to train the AI with"
+                    placeholder="Enter the training content"
                     className="min-h-[150px] border-mafia-300 focus-visible:ring-mafia-500"
                   />
                 </div>
                 <div>
                   <label htmlFor="description" className="block text-sm font-medium mb-1">
-                    Description (Optional)
+                    Description (optional)
                   </label>
                   <Textarea
                     id="description"
@@ -525,8 +559,8 @@ export default function TrainingPage() {
                 </div>
               </CardContent>
               <CardFooter>
-                <Button 
-                  onClick={handleCreateEntry} 
+                <Button
+                  onClick={handleCreateEntry}
                   className="bg-mafia-600 hover:bg-mafia-700"
                   disabled={loading}
                 >
@@ -545,16 +579,22 @@ export default function TrainingPage() {
               </CardHeader>
               <CardContent className="space-y-4 pt-4">
                 <div>
-                  <label htmlFor="replicaUUID" className="block text-sm font-medium mb-1">
-                    Replica UUID
+                  <label htmlFor="replicaInfo" className="block text-sm font-medium mb-1">
+                    Active Replica
                   </label>
-                  <Input
-                    id="replicaUUID"
-                    value={replicaUUID}
-                    onChange={(e) => setReplicaUUID(e.target.value)}
-                    placeholder="Enter replica UUID"
-                    className="border-mafia-300 focus-visible:ring-mafia-500"
-                  />
+                  <div className="flex items-center gap-2 p-2 border rounded-md border-mafia-300 bg-mafia-50 dark:bg-mafia-900/20 dark:border-mafia-700">
+                    <Bot className="h-5 w-5 text-mafia-500" />
+                    {selectedReplica ? (
+                      <div>
+                        <span className="font-medium">{selectedReplica.name}</span>
+                        <span className="ml-2 text-xs opacity-70">({selectedReplica.type})</span>
+                      </div>
+                    ) : (
+                      <div className="text-mafia-500 italic">
+                        No replica selected. Please select a replica from the header dropdown.
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label htmlFor="file" className="block text-sm font-medium mb-1">
@@ -650,10 +690,10 @@ export default function TrainingPage() {
                             value={editContent}
                             onChange={(e) => setEditContent(e.target.value)}
                             placeholder="Content"
-                            className="border-mafia-300 focus-visible:ring-mafia-500 min-h-[100px]"
+                            className="min-h-[100px] border-mafia-300 focus-visible:ring-mafia-500"
                           />
                         ) : (
-                          <div className="max-w-[300px] truncate">{entry.raw_text || "No content"}</div>
+                          <div className="max-w-[200px] truncate">{entry.raw_text || "No content"}</div>
                         )}
                       </TableCell>
                       <TableCell>
@@ -661,42 +701,50 @@ export default function TrainingPage() {
                           {entry.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{entry.type}</Badge>
-                      </TableCell>
+                      <TableCell>{entry.type}</TableCell>
                       <TableCell>{new Date(entry.created_at).toLocaleDateString()}</TableCell>
                       <TableCell className="text-right">
-                        {editingId === entry.id ? (
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleUpdateEntry(entry.id)}
-                              disabled={loading}
-                            >
-                              <Save className="h-4 w-4 mr-1" />
-                              Save
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={cancelEditing}>
-                              <X className="h-4 w-4 mr-1" />
-                              Cancel
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="flex justify-end gap-2">
-                            <Button variant="outline" size="sm" onClick={() => startEditing(entry)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-500 hover:text-red-700 hover:bg-red-100"
-                              onClick={() => handleDeleteEntry(entry.id)}
-                            >
-                              <Trash className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        )}
+                        <div className="flex justify-end space-x-2">
+                          {editingId === entry.id ? (
+                            <>
+                              <Button
+                                onClick={() => handleUpdateEntry(entry.id)}
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-2 text-green-500 hover:text-green-700"
+                              >
+                                <Save className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                onClick={cancelEditing}
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-2 text-gray-500 hover:text-gray-700"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                onClick={() => startEditing(entry)}
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-2 text-blue-500 hover:text-blue-700"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                onClick={() => handleDeleteEntry(entry.id)}
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-2 text-red-500 hover:text-red-700"
+                              >
+                                <Trash className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

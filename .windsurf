@@ -1,0 +1,134 @@
+{
+  "name": "MafCoach - Mafia Game Assistant with Sensay AI Integration",
+  "description": "A Next.js application that helps users learn the Mafia game with AI-powered coaching and conversation through Sensay AI platform",
+  "prompt": "You are an AI assistant for the MafCoach application, which teaches users about the Mafia game and provides AI-powered coaching. The app integrates with the Sensay AI platform and features a modern UI built with Next.js, React, and Tailwind CSS.
+
+KEY FEATURES:
+1. AI chat interface for coaching and guidance on Mafia gameplay
+2. Game rules, roles, and strategy tutorials
+3. Interactive game board
+4. Player progression system with experience and levels
+5. Admin tools for managing API settings and databases
+6. AI training section for working with Sensay API
+7. Chat trigger system for executing commands through AI responses
+
+TECHNICAL SPECIFICATIONS:
+- Frontend: Next.js 15, React 19, Tailwind CSS, shadcn/ui components
+- State Management: React Context for themes, player data, chat, and header state
+- API Integration: Sensay AI platform for conversational capabilities
+- Authentication: Bearer token + organization ID header for Sensay API
+- Database: Prisma ORM with PostgreSQL
+
+PROJECT STRUCTURE:
+- app/ - Next.js App Router structure
+  - api/ - Backend API routes for Sensay integration
+  - lib/api/ - Client utilities for Sensay API
+  - lib/utils/ - Utility functions including parseTrigger for chat commands
+- components/ - UI components
+  - ui/ - shadcn/ui components library
+  - chat-interface.tsx - Chat UI component
+  - chat-provider.tsx - Chat state management
+  - header.tsx - Navigation and app header
+  - player-provider.tsx - Player state management
+  - theme-provider.tsx - Theme management
+  - header-context.tsx - Header state management
+- public/ - Static assets
+- sensay-sdk/ - Sensay SDK integration
+
+CHAT TRIGGER SYSTEM:
+The application features a custom trigger system where AI responses can include special commands:
+```
+[TRIGGER]{\"action\":\"navigate\",\"payload\":\"/rules\"}[/TRIGGER]
+[TRIGGER]{\"action\":\"theme\",\"payload\":\"dark\"}[/TRIGGER]
+[TRIGGER]{\"action\":\"headerState\",\"payload\":{\"customStatus\":\"Demo\"}}[/TRIGGER]
+```
+These triggers allow the AI to navigate to different pages, change the app theme, or modify header component state.
+
+ENVIRONMENT VARIABLES:
+- SENSAY_API_KEY: Authentication token (used as Bearer token)
+- SENSAY_REPLICA_API: API endpoint URL
+- SENSAY_ORG_ID: Organization ID
+- SENSAY_REPLICA_UUID: Replica UUID for Sensay AI
+
+NAVIGATION STRUCTURE:
+The application header includes three dropdown menus:
+1. Mafia Tutorial - Game rules, roles, strategies
+2. Administration - API settings, keys, database management
+3. AI Training - Training tools for Sensay API
+
+STYLING:
+The application uses a dark mafia-themed color scheme with custom Tailwind classes (mafia-50 through mafia-950).
+
+USER TIPS:
+- When answering questions about the Mafia game, be accurate about gameplay mechanics
+- For Sensay API questions, reference the integration methods in the codebase
+- Remember the chat trigger system capabilities when suggesting advanced interactions
+- If discussing header or navigation changes, be aware of the HeaderProvider context
+- For theme changes, use the next-themes integration",
+  "structure": {
+    "app": {
+      "api": {
+        "sensay": {
+          "chat-history": {},
+          "training": {}
+        }
+      },
+      "lib": {
+        "api": {
+          "sensay.ts": "Sensay SDK wrapper",
+          "sensay-direct.ts": "Direct API implementation",
+          "sensay-chat-history.ts": "Chat history management",
+          "sensay-training.ts": "Training data client",
+          "sensay-replicas.ts": "Replica management"
+        },
+        "utils": {
+          "parseTrigger.ts": "Utility for extracting and handling chat command triggers"
+        }
+      },
+      "admin": {},
+      "chat-history": {},
+      "game-board": {},
+      "replicas": {},
+      "roles": {},
+      "rules": {},
+      "strategies": {},
+      "training": {},
+      "layout.tsx": "Root layout with provider wrappers",
+      "page.tsx": "Home page component"
+    },
+    "components": {
+      "ui": {
+        "button.tsx": "UI button component",
+        "dropdown-menu.tsx": "Dropdown menu component",
+        "input.tsx": "Input component",
+        "toast.tsx": "Toast notification component"
+      },
+      "chat-interface.tsx": "AI chat interface component",
+      "chat-provider.tsx": "Chat context provider with Sensay integration",
+      "header.tsx": "Application header with navigation",
+      "header-context.tsx": "Header state management context",
+      "player-provider.tsx": "Player progression system context",
+      "theme-provider.tsx": "Theme management context",
+      "game-board.tsx": "Interactive game board component",
+      "game-introduction.tsx": "Game introduction component",
+      "game-roles.tsx": "Game roles explanation component",
+      "game-rules.tsx": "Game rules explanation component",
+      "game-strategies.tsx": "Game strategies component",
+      "mode-toggle.tsx": "Theme toggle component",
+      "player-card.tsx": "Player information card component",
+      "quest-system.tsx": "Quest/achievement system component"
+    },
+    "public": {
+      "coach.png": "Mafia coach avatar image"
+    },
+    "prisma": {
+      "schema.prisma": "Database schema definition"
+    },
+    "sensay-sdk": {
+      "index.ts": "SDK entry point"
+    },
+    ".env": "Environment variables",
+    "next.config.mjs": "Next.js configuration",
+    "tailwind.config.ts": "Tailwind CSS configuration"
+  }
+}

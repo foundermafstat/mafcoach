@@ -3,17 +3,53 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+export interface SensayReplicaLLM {
+  model: string;
+  tools: string[];
+  memoryMode: string;
+  systemMessage: string;
+}
+
+export interface SensayReplicaIntegration {
+  token: string;
+  is_active?: boolean;
+  service_name: string;
+}
+
 export interface SensayReplica {
-  id: string;
+  llm: SensayReplicaLLM;
   name: string;
-  description: string;
-  createdAt: string;
-  updatedAt: string;
+  slug: string;
+  tags: string[];
+  type: string;
+  uuid: string;
+  ownerID: string;
+  private: boolean;
+  purpose: string;
+  greeting: string;
+  created_at: string;
+  owner_uuid: string;
+  elevenLabsID?: string;
+  introduction?: string;
+  profileImage?: string;
+  profile_image?: string;
+  video_enabled: boolean;
+  voice_enabled: boolean;
+  system_message: string;
+  whitelistEmails?: string[];
+  shortDescription?: string;
+  short_description?: string;
+  chat_history_count: number;
+  suggestedQuestions?: string[];
+  discord_integration?: SensayReplicaIntegration;
+  telegram_integration?: SensayReplicaIntegration;
 }
 
 interface SensayReplicasResponse {
   success: boolean;
-  replicas: SensayReplica[];
+  type: string;
+  items: SensayReplica[];
+  total: number;
 }
 
 interface SensayReplicaResponse {
@@ -40,64 +76,35 @@ export class SensayReplicasService {
       console.log(`Using API key: ${settings.apiKey ? settings.apiKey.substring(0, 10) + '...' : 'undefined'}`);
       console.log(`Using organization ID: ${settings.organizationId || 'undefined'}`);
 
-      // Выполняем запрос согласно документации
-      // https://docs.sensay.io/operation/operation-get-v1-replicas
+      // Выполняем запрос согласно документации и требованиям
       const url = "https://api.sensay.io/v1/replicas";
       console.log(`Sending GET request to: ${url}`);
       
       const response = await fetch(url, {
         method: "GET",
         headers: {
-          "Authorization": `Bearer ${settings.apiKey}`,
+          "X-ORGANIZATION-SECRET": settings.apiKey,
+          "X-USER-ID": settings.apiKey,
+          "X-API-Version": "2025-03-25",
           "x-organization-id": settings.organizationId,
         },
       });
 
-      // Получаем и логируем статус ответа
       console.log(`Response status: ${response.status} ${response.statusText}`);
 
-      // Обрабатываем ошибки
       if (!response.ok) {
-        let errorMessage = `Failed to get replicas: Status ${response.status}`;
-        try {
-          const errorData = await response.json();
-          errorMessage = `Failed to get replicas: ${errorData.error || JSON.stringify(errorData)}`;
-          console.error(errorMessage, errorData);
-        } catch (parseError) {
-          // Если ответ не является JSON
-          const errorText = await response.text();
-          errorMessage = `Failed to get replicas: ${errorText || response.statusText}`;
-          console.error(errorMessage, errorText);
-        }
-        throw new Error(errorMessage);
+        const errorText = await response.text();
+        console.error(`Error response: ${errorText}`);
+        throw new Error(`Failed to fetch replicas: ${response.status} ${response.statusText}`);
       }
 
       // Парсим успешный ответ
       const data = await response.json();
-      console.log(`Received ${data.replicas?.length || 0} replicas from API`);
-      
-      // Проверяем структуру ответа
-      if (!data.replicas || !Array.isArray(data.replicas)) {
-        console.warn('Unexpected API response structure:', data);
-        
-        // Пытаемся адаптировать ответ, если он имеет другую структуру
-        let replicas: SensayReplica[] = [];
-        
-        if (Array.isArray(data)) {
-          console.log('Response is an array, using directly');
-          replicas = data;
-        } else if (data.items && Array.isArray(data.items)) {
-          console.log('Found items array in response, using it');
-          replicas = data.items;
-        } else {
-          console.error('Could not find replicas array in response');
-          // Возвращаем пустой массив вместо ошибки
-          return [];
-        }
-        
-        // Сохраняем реплики в базу данных
-        await this.saveReplicasToDatabase(replicas, settings.id);
-        return replicas;
+      console.log('Response data:', data);
+
+      if (!data.success) {
+        console.error('API returned success: false');
+        throw new Error(`API Error: ${data.message || 'Unknown error'}`);
       }
       
       // Стандартный путь - структура соответствует ожидаемой

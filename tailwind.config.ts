@@ -53,8 +53,39 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Dark theme specific colors
+        dark: {
+          100: "#141519",  // Very dark - bottom bar, headers
+          200: "#1b1c21",  // Slightly lighter - avatar backgrounds
+          300: "#1e1f24",  // Card backgrounds
+          400: "#2a2b32",  // Hover states
+          500: "#27272a",  // Borders
+        },
+        // Gold/amber accent colors
+        gold: {
+          100: "#fef3c7",
+          200: "#fde68a",
+          300: "#fcd34d",
+          400: "#fbbf24",  // Main gold color from screenshots
+          500: "#f59e0b",
+          600: "#d97706",
+        },
         // Custom red colors
         mafia: {
+          50: "#fff1f1",
+          100: "#e1e1e1",
+          200: "#c7c7c7",
+          300: "#9e9e9e",
+          400: "#646464",
+          500: "#5a5a5a",
+          600: "#444444",
+          700: "#333333",
+          800: "#222222",
+          900: "#111111",
+          950: "#000000",
+        },
+
+        civilian: {
           50: "#fff1f1",
           100: "#ffe1e1",
           200: "#ffc7c7",
