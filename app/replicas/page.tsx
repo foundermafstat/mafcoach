@@ -75,7 +75,7 @@ export default function ReplicasPage() {
     }
   }, [toast])
   
-  // Получение деталей реплики
+  // Get replica details
   const handleViewReplica = async (replicaId: string) => {
     try {
       setLoading(true)
@@ -95,7 +95,7 @@ export default function ReplicasPage() {
     }
   }
   
-  // Создание новой реплики
+  // Create new replica
   const handleCreateReplica = async (data: ReplicaCreateUpdateData) => {
     try {
       setFormLoading(true)
@@ -119,7 +119,7 @@ export default function ReplicasPage() {
     }
   }
   
-  // Редактирование реплики
+  // Edit replica
   const handleOpenEditDialog = async (replicaId: string) => {
     try {
       setLoading(true)
@@ -164,7 +164,7 @@ export default function ReplicasPage() {
     }
   }
   
-  // Удаление реплики
+  // Delete replica
   const handleOpenDeleteDialog = (replica: SensayReplica) => {
     setSelectedReplica(replica)
     setIsDeleteDialogOpen(true)
@@ -198,8 +198,8 @@ export default function ReplicasPage() {
   const handleCopyId = (id: string) => {
     navigator.clipboard.writeText(id);
     toast({
-      title: "ID скопирован",
-      description: "Идентификатор реплики скопирован в буфер обмена",
+      title: "ID Copied",
+      description: "Replica identifier has been copied to clipboard",
     });
   };
 
@@ -213,12 +213,12 @@ export default function ReplicasPage() {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Название и информация</TableHead>
-          <TableHead>Идентификатор</TableHead>
-          <TableHead>Модель LLM</TableHead>
-          <TableHead>Теги</TableHead>
-          <TableHead>Создана</TableHead>
-          <TableHead>Действия</TableHead>
+          <TableHead>Name and Information</TableHead>
+          <TableHead>Identifier</TableHead>
+          <TableHead>LLM Model</TableHead>
+          <TableHead>Tags</TableHead>
+          <TableHead>Created</TableHead>
+          <TableHead>Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -233,7 +233,7 @@ export default function ReplicasPage() {
                     alt={replica.name}
                     className="h-full w-full object-cover"
                     onError={(e) => {
-                      // Заменяем битые изображения на плейсхолдер
+                      // Replace broken images with placeholder
                       (e.target as HTMLImageElement).src = 'https://placehold.co/400x400/4F46E5/FFFFFF?text=AI';
                     }}
                   />
@@ -241,7 +241,7 @@ export default function ReplicasPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     {replica.name}
-                    {replica.private && <Badge variant="outline" className="ml-1 bg-dark-400">Приватная</Badge>}
+                    {replica.private && <Badge variant="outline" className="ml-1 bg-dark-400">Private</Badge>}
                   </div>
                   {(replica.shortDescription || replica.short_description) && (
                     <div className="text-xs text-muted-foreground mt-1 max-w-md truncate">
@@ -275,16 +275,16 @@ export default function ReplicasPage() {
             <TableCell>
               <div className="flex items-center gap-2">
                 <Bot className="h-4 w-4 text-mafia-300" />
-                <span>{replica.llm?.model || "Не указана"}</span>
+                <span>{replica.llm?.model || "Not specified"}</span>
               </div>
               {replica.llm?.memoryMode && (
-                <div className="text-xs text-muted-foreground mt-1">Память: {replica.llm.memoryMode}</div>
+                <div className="text-xs text-muted-foreground mt-1">Memory: {replica.llm.memoryMode}</div>
               )}
               <div className="text-xs text-muted-foreground mt-1">
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="link" className="h-auto p-0 text-xs">
-                      Системное сообщение
+                      System Message
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-80 p-2 bg-dark-300 border-dark-500 text-white">
@@ -302,7 +302,7 @@ export default function ReplicasPage() {
                   <Badge variant="outline" className="text-xs bg-dark-400">+{replica.tags.length - 3}</Badge>
                 )}
                 {(!replica.tags || replica.tags.length === 0) && (
-                  <span className="text-xs text-muted-foreground">Нет тегов</span>
+                  <span className="text-xs text-muted-foreground">No tags</span>
                 )}
               </div>
             </TableCell>
@@ -315,7 +315,7 @@ export default function ReplicasPage() {
                   </div>
                 </div>
               ) : (
-                <span className="text-xs text-muted-foreground">Не указана</span>
+                <span className="text-xs text-muted-foreground">Not specified</span>
               )}
             </TableCell>
             <TableCell>
@@ -324,7 +324,7 @@ export default function ReplicasPage() {
                   size="icon"
                   variant="ghost"
                   className="h-8 w-8"
-                  title="Подробная информация"
+                  title="Detailed Information"
                   onClick={() => handleViewReplica(replica.uuid)}
                 >
                   <Eye className="h-4 w-4" />
@@ -333,7 +333,7 @@ export default function ReplicasPage() {
                   size="icon"
                   variant="ghost"
                   className="h-8 w-8"
-                  title="Редактировать"
+                  title="Edit"
                   onClick={() => handleOpenEditDialog(replica.uuid)}
                 >
                   <Edit className="h-4 w-4" />
@@ -342,7 +342,7 @@ export default function ReplicasPage() {
                   size="icon"
                   variant="ghost"
                   className="h-8 w-8 hover:text-red-500"
-                  title="Удалить"
+                  title="Delete"
                   onClick={() => handleOpenDeleteDialog(replica)}
                 >
                   <Trash className="h-4 w-4" />
@@ -358,10 +358,10 @@ export default function ReplicasPage() {
       {error ? (
         <div className="flex flex-col items-center gap-2">
           <AlertCircle className="h-8 w-8 text-red-500" />
-          <p>Ошибка: {error}</p>
+          <p>Error: {error}</p>
         </div>
       ) : (
-        "Реплики не найдены. Проверьте конфигурацию API."
+        "No replicas found. Check API configuration."
       )}
     </div>
   )
@@ -371,15 +371,15 @@ export default function ReplicasPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Sensay Replicas</h1>
-          <p className="text-muted-foreground mt-1">Управление репликами для Sensay API</p>
+          <p className="text-muted-foreground mt-1">Manage replicas for Sensay API</p>
         </div>
         <div className="flex gap-2">
           <Button 
             onClick={() => setIsCreateDialogOpen(true)} 
-            className="bg-mafia-600 hover:bg-mafia-700"
+            className="bg-gold-500 hover:bg-gold-600"
           >
             <Plus className="h-4 w-4 mr-2" />
-            Создать реплику
+            Create Replica
           </Button>
           <Button 
             onClick={fetchReplicasData} 
@@ -387,7 +387,7 @@ export default function ReplicasPage() {
             variant="outline"
             className="border-dark-500 bg-dark-400 text-white"
           >
-            {loading ? "Загрузка..." : "Обновить"}
+            {loading ? "Loading..." : "Refresh"}
           </Button>
         </div>
       </div>
@@ -396,10 +396,10 @@ export default function ReplicasPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Database className="h-5 w-5 text-mafia-300" />
-            <span>Активные реплики</span>
+            <span>Active Replicas</span>
           </CardTitle>
           <CardDescription>
-            Список реплик из Sensay API. Это ИИ-персонажи, которые могут использоваться в вашем приложении.
+            List of replicas from Sensay API. These are AI characters that can be used in your application.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -408,7 +408,7 @@ export default function ReplicasPage() {
               <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent" role="status">
                 <span className="sr-only">Loading...</span>
               </div>
-              <div className="mt-4 text-muted-foreground">Загрузка реплик из Sensay API...</div>
+              <div className="mt-4 text-muted-foreground">Loading replicas from Sensay API...</div>
             </div>
           ) : (
             replicasTable
@@ -416,18 +416,18 @@ export default function ReplicasPage() {
         </CardContent>
         <CardFooter className="flex justify-between">
           <div className="text-sm text-muted-foreground">
-            {replicas.length > 0 ? `Найдено ${replicas.length} реплик` : "Реплики не найдены"}
+            {replicas.length > 0 ? `Found ${replicas.length} replicas` : "No replicas found"}
           </div>
         </CardFooter>
       </Card>
 
-      {/* Диалог просмотра деталей реплики */}
+      {/* Replica details dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="max-w-4xl border border-dark-500 bg-dark-300 text-white">
           <DialogHeader>
-            <DialogTitle>Информация о реплике</DialogTitle>
+            <DialogTitle>Replica Information</DialogTitle>
             <DialogDescription>
-              Детальная информация о реплике {selectedReplica?.name}
+              Detailed information about replica {selectedReplica?.name}
             </DialogDescription>
           </DialogHeader>
           {selectedReplica && <ReplicaDetail replica={selectedReplica} />}
@@ -436,19 +436,19 @@ export default function ReplicasPage() {
               onClick={() => setIsViewDialogOpen(false)}
               className="border-dark-500 bg-dark-400 text-white"
             >
-              Закрыть
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Диалог создания реплики */}
+      {/* Create replica dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="max-w-4xl border border-dark-500 bg-dark-300 text-white">
           <DialogHeader>
-            <DialogTitle>Создать новую реплику</DialogTitle>
+            <DialogTitle>Create New Replica</DialogTitle>
             <DialogDescription>
-              Заполните информацию для создания новой реплики Sensay
+              Fill in the information to create a new Sensay replica
             </DialogDescription>
           </DialogHeader>
           <ReplicaForm 
@@ -459,13 +459,13 @@ export default function ReplicasPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Диалог редактирования реплики */}
+      {/* Edit replica dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-4xl border border-dark-500 bg-dark-300 text-white">
           <DialogHeader>
-            <DialogTitle>Редактировать реплику</DialogTitle>
+            <DialogTitle>Edit Replica</DialogTitle>
             <DialogDescription>
-              Обновите информацию о реплике {selectedReplica?.name}
+              Update information about replica {selectedReplica?.name}
             </DialogDescription>
           </DialogHeader>
           {selectedReplica && (
@@ -479,24 +479,24 @@ export default function ReplicasPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Диалог подтверждения удаления */}
+      {/* Delete confirmation dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent className="border border-dark-500 bg-dark-300 text-white">
           <AlertDialogHeader>
-            <AlertDialogTitle>Вы уверены?</AlertDialogTitle>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              Это действие удалит реплику <strong>{selectedReplica?.name}</strong> и не может быть отменено.
+              This action will delete the replica <strong>{selectedReplica?.name}</strong> and cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="border-dark-500 bg-dark-400 text-white">
-              Отмена
+              Cancel
             </AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleDeleteReplica}
               className="bg-red-600 hover:bg-red-700"
             >
-              Удалить
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

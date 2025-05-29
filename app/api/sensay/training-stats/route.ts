@@ -3,7 +3,10 @@ import { NextRequest, NextResponse } from "next/server"
 // Получаем переменные окружения
 const apiKey = process.env.SENSAY_API_KEY
 const orgId = process.env.SENSAY_ORG_ID
-const sensayApiBase = process.env.SENSAY_REPLICA_API || "https://api.sensay.ai/v1"
+// Корректно обрабатываем базовый URL API
+const sensayApiBase = process.env.SENSAY_REPLICA_API ? 
+  process.env.SENSAY_REPLICA_API.replace(/\/replicas$/, "") : 
+  "https://api.sensay.io/v1"
 
 export async function GET(request: NextRequest) {
   try {
@@ -27,6 +30,10 @@ export async function GET(request: NextRequest) {
 
     // Запрос к Sensay API для получения статистики тренировок
     const statsUrl = `${sensayApiBase}/replicas/${replicaUUID}/stats`
+    
+    console.log(`API Key: ${apiKey ? 'Present' : 'Missing'}`)
+    console.log(`Organization ID: ${orgId ? 'Present' : 'Missing'}`)
+    console.log(`Base URL: ${sensayApiBase}`)
 
     console.log(`Fetching training stats from: ${statsUrl}`)
 
@@ -34,8 +41,7 @@ export async function GET(request: NextRequest) {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-        "x-organization-id": orgId
+        "X-ORGANIZATION-SECRET": apiKey
       }
     })
 

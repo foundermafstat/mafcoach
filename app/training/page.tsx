@@ -9,11 +9,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Plus, Trash, Edit, Save, X, Upload, FileText, RefreshCcw, AlertCircle, Eye, Database } from "lucide-react"
+import { Plus, Trash, Edit, Save, X, Upload, FileText, RefreshCcw, AlertCircle, Eye, Database, Bot } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import ReplicaSelect from "@/components/replica-select"
-import { fetchTrainingStats, type TrainingStats } from "@/app/lib/api/sensay-training-stats-client"
+import { useReplica } from "@/components/replica-provider"
+// Импорт функции статистики удален, так как API не поддерживает этот эндпоинт
 
 // Using the actual Sensay API types
 type KnowledgeEntry = {
@@ -37,15 +37,16 @@ export default function TrainingPage() {
   const [title, setTitle] = useState("")
   const [content, setContent] = useState("")
   const [description, setDescription] = useState("")
-  const [replicaUUID, setReplicaUUID] = useState("")
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editTitle, setEditTitle] = useState("")
   const [editContent, setEditContent] = useState("")
   const [editDescription, setEditDescription] = useState("")
   const [file, setFile] = useState<File | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
-  const [trainingStats, setTrainingStats] = useState<TrainingStats | null>(null)
-  const [loadingStats, setLoadingStats] = useState(false)
+  
+  // Use global replica context instead of local state
+  const { selectedReplicaUuid: replicaUUID, selectedReplica } = useReplica()
+  // Состояния для статистики удалены, так как API не поддерживает этот эндпоинт
   
   const { toast } = useToast()
 
@@ -60,7 +61,12 @@ export default function TrainingPage() {
 
       // Fetch entries from the API via API routes
       try {
-        const response = await fetch('/api/sensay/training')
+        // Используем replicaUUID для фильтрации данных, если он задан
+        const url = replicaUUID 
+          ? `/api/sensay/training?replica_uuid=${replicaUUID}` 
+          : '/api/sensay/training';
+          
+        const response = await fetch(url)
         
         if (!response.ok) {
           const errorData = await response.json()
@@ -91,39 +97,23 @@ export default function TrainingPage() {
       setRefreshing(false)
       setLoading(false)
     }
-  }, [toast])
+  }, [replicaUUID, toast])
 
-  // Функция для получения статистики тренировок
-  const fetchTrainingStatsData = useCallback(async () => {
-    if (!replicaUUID) return;
-    
-    try {
-      setLoadingStats(true);
-      const stats = await fetchTrainingStats(replicaUUID);
-      setTrainingStats(stats);
-    } catch (error) {
-      console.error("Error fetching training stats:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load training statistics. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingStats(false);
-    }
-  }, [replicaUUID, toast]);
+  // Функция для получения статистики тренировок удалена, так как API не поддерживает этот эндпоинт
 
   // Initial fetch
   useEffect(() => {
     fetchEntries(false);
   }, [fetchEntries]);
   
-  // Fetch training stats when replica UUID changes
+  // Обновляем данные при смене реплики
   useEffect(() => {
     if (replicaUUID) {
-      fetchTrainingStatsData();
+      fetchEntries(true);
     }
-  }, [replicaUUID, fetchTrainingStatsData]);
+  }, [replicaUUID, fetchEntries]);
+  
+  // useEffect для получения статистики удален, так как API не поддерживает этот эндпоинт
   
   // Function to refresh entries
   const handleRefresh = () => {
@@ -499,82 +489,6 @@ export default function TrainingPage() {
             Refresh
           </Button>
         </div>
-        
-        {/* Статистика тренировок */}
-        {replicaUUID && (
-          <Card className="border-mafia-200 dark:border-mafia-800">
-            <CardHeader className="bg-mafia-50 dark:bg-mafia-900/20 rounded-t-lg py-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-mafia-900 dark:text-mafia-300 text-lg">
-                  <div className="flex items-center">
-                    <Database className="h-5 w-5 mr-2" />
-                    Training Statistics
-                  </div>
-                </CardTitle>
-                <Button 
-                  onClick={fetchTrainingStatsData} 
-                  variant="ghost" 
-                  size="sm" 
-                  className="h-8 px-2"
-                  disabled={loadingStats}
-                >
-                  <RefreshCcw className={`h-4 w-4 ${loadingStats ? "animate-spin" : ""}`} />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-3 pb-3">
-              {loadingStats ? (
-                <div className="flex flex-col space-y-2">
-                  <Skeleton className="h-5 w-full" />
-                  <Skeleton className="h-5 w-3/4" />
-                  <Skeleton className="h-5 w-1/2" />
-                </div>
-              ) : trainingStats ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  <div className="flex flex-col">
-                    <span className="text-sm text-mafia-500 dark:text-mafia-400">Total Entries</span>
-                    <span className="font-semibold">{trainingStats.total_entries}</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-sm text-mafia-500 dark:text-mafia-400">Processed</span>
-                    <span className="font-semibold">{trainingStats.processed_entries} 
-                      <span className="text-xs font-normal ml-1 text-mafia-500">
-                        ({trainingStats.total_entries ? 
-                          Math.round((trainingStats.processed_entries / trainingStats.total_entries) * 100) : 0}%)
-                      </span>
-                    </span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-sm text-mafia-500 dark:text-mafia-400">Processing</span>
-                    <span className="font-semibold">{trainingStats.processing_entries}</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-sm text-mafia-500 dark:text-mafia-400">Errors</span>
-                    <span className="font-semibold">{trainingStats.error_entries}</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-sm text-mafia-500 dark:text-mafia-400">Data Size</span>
-                    <span className="font-semibold">{formatDataSize(trainingStats.data_size_bytes)}</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-sm text-mafia-500 dark:text-mafia-400">Tokens</span>
-                    <span className="font-semibold">{trainingStats.token_count.toLocaleString()}</span>
-                  </div>
-                  <div className="flex flex-col col-span-full">
-                    <span className="text-sm text-mafia-500 dark:text-mafia-400">Last Updated</span>
-                    <span className="font-semibold">
-                      {new Date(trainingStats.last_updated).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm text-mafia-500 dark:text-mafia-400">
-                  No statistics available for this replica.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        )}
 
         <Tabs defaultValue="text">
           <TabsList className="grid w-full max-w-md grid-cols-2">
@@ -590,14 +504,22 @@ export default function TrainingPage() {
               </CardHeader>
               <CardContent className="space-y-4 pt-4">
                 <div>
-                  <label htmlFor="replicaSelect" className="block text-sm font-medium mb-1">
-                    Replica
+                  <label htmlFor="replicaInfo" className="block text-sm font-medium mb-1">
+                    Active Replica
                   </label>
-                  <ReplicaSelect
-                    value={replicaUUID}
-                    onChange={setReplicaUUID}
-                    className="w-full"
-                  />
+                  <div className="flex items-center gap-2 p-2 border rounded-md border-mafia-300 bg-mafia-50 dark:bg-mafia-900/20 dark:border-mafia-700">
+                    <Bot className="h-5 w-5 text-mafia-500" />
+                    {selectedReplica ? (
+                      <div>
+                        <span className="font-medium">{selectedReplica.name}</span>
+                        <span className="ml-2 text-xs opacity-70">({selectedReplica.type})</span>
+                      </div>
+                    ) : (
+                      <div className="text-mafia-500 italic">
+                        No replica selected. Please select a replica from the header dropdown.
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label htmlFor="title" className="block text-sm font-medium mb-1">
@@ -657,14 +579,22 @@ export default function TrainingPage() {
               </CardHeader>
               <CardContent className="space-y-4 pt-4">
                 <div>
-                  <label htmlFor="replicaUUID" className="block text-sm font-medium mb-1">
-                    Replica
+                  <label htmlFor="replicaInfo" className="block text-sm font-medium mb-1">
+                    Active Replica
                   </label>
-                  <ReplicaSelect
-                    value={replicaUUID}
-                    onChange={setReplicaUUID}
-                    className="w-full"
-                  />
+                  <div className="flex items-center gap-2 p-2 border rounded-md border-mafia-300 bg-mafia-50 dark:bg-mafia-900/20 dark:border-mafia-700">
+                    <Bot className="h-5 w-5 text-mafia-500" />
+                    {selectedReplica ? (
+                      <div>
+                        <span className="font-medium">{selectedReplica.name}</span>
+                        <span className="ml-2 text-xs opacity-70">({selectedReplica.type})</span>
+                      </div>
+                    ) : (
+                      <div className="text-mafia-500 italic">
+                        No replica selected. Please select a replica from the header dropdown.
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label htmlFor="file" className="block text-sm font-medium mb-1">

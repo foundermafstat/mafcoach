@@ -108,8 +108,20 @@ export async function POST(request: Request) {
     
     console.log(`Creating chat history for replica UUID: ${replicaUUID} directly from API route`);
     
+    // Based on the error message, it seems the API expects a 'content' field instead of 'messages'
+    // Extract the content from the first message
+    const messageContent = messages[0].content || "";
+    
     // Согласно памяти о проекте, используем Bearer токен и ID организации
     const url = `https://api.sensay.io/v1/replicas/${replicaUUID}/chat/history`;
+    
+    // Prepare the request body according to the API requirements
+    const requestBody = {
+      content: messageContent,
+      // Include any other required fields here
+    };
+    
+    console.log('Sending request with body:', JSON.stringify(requestBody));
     
     const response = await fetch(url, {
       method: 'POST',
@@ -117,7 +129,7 @@ export async function POST(request: Request) {
         'Content-Type': 'application/json',
         'X-ORGANIZATION-SECRET': SENSAY_API_KEY
       },
-      body: JSON.stringify({ messages })
+      body: JSON.stringify(requestBody)
     });
     
     if (!response.ok) {

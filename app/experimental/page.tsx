@@ -32,12 +32,12 @@ export default function ExperimentalPage() {
   const [systemPrompt, setSystemPrompt] = useState('You are a helpful assistant.');
   const [error, setError] = useState('');
 
-  // Загружаем реплики при монтировании компонента, если они еще не загружены
+  // Load replicas when component mounts if they are not already loaded
   useEffect(() => {
     if (replicas.length === 0 && !loadingReplicas) {
       refreshReplicas();
     } else if (replicas.length > 0 && !replicaId) {
-      // Если реплики загружены, но UUID не выбран, устанавливаем первую реплику
+      // If replicas are loaded but UUID is not selected, set the first replica
       setReplicaId(replicas[0].uuid);
     }
   }, [replicas, loadingReplicas, refreshReplicas, replicaId]);
@@ -48,7 +48,7 @@ export default function ExperimentalPage() {
     setLoading(true);
     setError('');
 
-    // Добавляем сообщение пользователя
+    // Add user message
     const updatedMessages = [
       ...messages,
       { role: 'user', content: userInput.trim() },
@@ -56,7 +56,7 @@ export default function ExperimentalPage() {
     setMessages(updatedMessages);
 
     try {
-      // Вызываем наш API-роут, который обращается к экспериментальному API Sensay
+      // Call our API route that connects to the Sensay Experimental API
       const response = await fetch('/api/sensay/experimental', {
         method: 'POST',
         headers: {
@@ -66,19 +66,19 @@ export default function ExperimentalPage() {
           messages: updatedMessages,
           store: true,
           source: 'web',
-          replicaId: replicaId,  // Передаем выбранный UUID реплики
+          replicaId: replicaId,  // Pass the selected replica UUID
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Не удалось получить ответ от API');
+        throw new Error(errorData.error || 'Failed to get API response');
       }
 
       const data = await response.json();
       setResponse(data);
 
-      // Добавляем ответ ассистента в историю сообщений
+      // Add assistant response to message history
       if (data.choices?.[0]?.message) {
         setMessages([
           ...updatedMessages,
@@ -87,7 +87,7 @@ export default function ExperimentalPage() {
       }
     } catch (err) {
       console.error('Error calling experimental API:', err);
-      setError(err instanceof Error ? err.message : 'Произошла ошибка при обращении к API');
+      setError(err instanceof Error ? err.message : 'An error occurred when calling the API');
     } finally {
       setLoading(false);
       setUserInput('');
@@ -106,21 +106,21 @@ export default function ExperimentalPage() {
 
   return (
     <div className="container mx-auto p-4 space-y-6">
-      <h1 className="text-2xl font-bold text-white">Экспериментальный API Sensay</h1>
+      <h1 className="text-2xl font-bold text-white">Sensay Experimental API</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Левая панель настроек */}
+        {/* Left settings panel */}
         <Card className="border border-dark-500 bg-dark-300 text-white">
           <CardHeader>
-            <CardTitle>Настройки запроса</CardTitle>
+            <CardTitle>Request Settings</CardTitle>
             <CardDescription className="text-gray-400">
-              Настройте параметры для запроса к экспериментальному API
+              Configure parameters for Experimental API requests
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Выбор реплики */}
+            {/* Replica selection */}
             <div className="space-y-2">
-              <Label htmlFor="replicaId">ID реплики</Label>
+              <Label htmlFor="replicaId">Replica ID</Label>
               <div className="flex gap-2">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -132,18 +132,18 @@ export default function ExperimentalPage() {
                       {loadingReplicas ? (
                         <div className="flex items-center gap-2">
                           <Loader2 className="h-4 w-4 animate-spin" />
-                          <span>Загрузка реплик...</span>
+                          <span>Loading replicas...</span>
                         </div>
                       ) : (
                         <div className="flex justify-between w-full items-center">
-                          <span className="truncate max-w-[200px]">{replicaId || 'Выберите реплику'}</span>
+                          <span className="truncate max-w-[200px]">{replicaId || 'Select a replica'}</span>
                           <ChevronDown className="h-4 w-4 ml-2 flex-shrink-0" />
                         </div>
                       )}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-[300px]">
-                    <DropdownMenuLabel>Доступные реплики</DropdownMenuLabel>
+                    <DropdownMenuLabel>Available Replicas</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <ScrollArea className="h-[200px]">
                       {replicas.length > 0 ? (
@@ -164,7 +164,7 @@ export default function ExperimentalPage() {
                         ))
                       ) : (
                         <div className="p-2 text-center text-sm text-gray-400">
-                          {loadingReplicas ? 'Загрузка...' : 'Нет доступных реплик'}
+                          {loadingReplicas ? 'Loading...' : 'No replicas available'}
                         </div>
                       )}
                     </ScrollArea>
@@ -175,24 +175,24 @@ export default function ExperimentalPage() {
                   size="icon" 
                   onClick={refreshReplicas}
                   disabled={loadingReplicas}
-                  title="Обновить список реплик"
+                  title="Refresh replica list"
                   className="border-dark-500 bg-dark-400 text-white"
                 >
                   <RefreshCw className={`h-4 w-4 ${loadingReplicas ? 'animate-spin' : ''}`} />
                 </Button>
               </div>
-              {/* Ручной ввод UUID */}
+              {/* Manual UUID input */}
               <Input
                 id="replicaId"
                 value={replicaId}
                 onChange={(e) => setReplicaId(e.target.value)}
-                placeholder="Или введите UUID реплики вручную"
+                placeholder="Or enter replica UUID manually"
                 className="mt-2 text-xs font-mono border-dark-500 bg-dark-400 text-white"
               />
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="systemPrompt">Системный промпт</Label>
+              <Label htmlFor="systemPrompt">System Prompt</Label>
               <Textarea
                 id="systemPrompt"
                 value={systemPrompt}
@@ -205,7 +205,7 @@ export default function ExperimentalPage() {
                 onClick={updateSystemPrompt}
                 className="mt-2 border-dark-500 bg-dark-400 text-white"
               >
-                Обновить промпт
+                Update Prompt
               </Button>
             </div>
             
@@ -214,17 +214,17 @@ export default function ExperimentalPage() {
               onClick={resetChat}
               className="w-full"
             >
-              Сбросить чат
+              Reset Chat
             </Button>
           </CardContent>
         </Card>
         
-        {/* Правая панель чата */}
+        {/* Right chat panel */}
         <Card className="border border-dark-500 bg-dark-300 text-white">
           <CardHeader>
-            <CardTitle>Чат с API</CardTitle>
+            <CardTitle>Experimental API Chat</CardTitle>
             <CardDescription className="text-gray-400">
-              Отправьте сообщение и получите ответ от экспериментального API
+              Send messages and receive responses from the replica
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -232,7 +232,7 @@ export default function ExperimentalPage() {
               <div className="space-y-4">
                 {messages.map((msg, index) => (
                   <div
-                    key={index}
+                    key={`${msg.role}-${index}`}
                     className={`p-3 rounded-lg ${
                       msg.role === 'user'
                         ? 'bg-mafia-600 text-white ml-auto max-w-[80%]'
@@ -247,12 +247,12 @@ export default function ExperimentalPage() {
                 {loading && (
                   <div className="flex items-center space-x-2 bg-gray-700 text-white p-3 rounded-lg max-w-[80%]">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <p>API отвечает...</p>
+                    <p>API is responding...</p>
                   </div>
                 )}
                 {error && (
                   <div className="bg-red-500/20 border border-red-500 text-red-200 p-3 rounded-lg">
-                    <p className="text-sm font-semibold">Ошибка</p>
+                    <p className="text-sm font-semibold">Error</p>
                     <p className="text-xs">{error}</p>
                   </div>
                 )}
@@ -270,7 +270,7 @@ export default function ExperimentalPage() {
               <Input
                 value={userInput}
                 onChange={(e) => setUserInput(e.target.value)}
-                placeholder="Введите сообщение..."
+                placeholder="Type your message..."
                 disabled={loading}
                 className="flex-1 border-dark-500 bg-dark-400 text-white"
               />
@@ -279,20 +279,20 @@ export default function ExperimentalPage() {
                 disabled={loading || !userInput.trim() || !replicaId}
                 className="bg-mafia-600 hover:bg-mafia-700 text-white"
               >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Отправить'}
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send'}
               </Button>
             </form>
           </CardFooter>
         </Card>
       </div>
       
-      {/* Отображение ответа API в формате JSON для отладки */}
+      {/* Display API response in JSON format for debugging */}
       {response && (
         <Card className="border border-dark-500 bg-dark-300 text-white">
           <CardHeader>
-            <CardTitle>Ответ API (JSON)</CardTitle>
+            <CardTitle>API Response (JSON)</CardTitle>
             <CardDescription className="text-gray-400">
-              Полный ответ от API в формате JSON
+              Complete API response in JSON format
             </CardDescription>
           </CardHeader>
           <CardContent>

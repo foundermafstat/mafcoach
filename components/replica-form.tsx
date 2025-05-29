@@ -163,7 +163,7 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
     }));
   };
 
-  // Валидация URL
+  // URL validation
   const isValidHttpUrl = (string: string) => {
     try {
       const url = new URL(string);
@@ -174,22 +174,22 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
   };
 
   const validateForm = (): {valid: boolean; error?: string} => {
-    // Проверка обязательных полей
+    // Check required fields
     if (!formData.name.trim()) {
-      return { valid: false, error: 'Имя реплики обязательно' };
+      return { valid: false, error: 'Replica name is required' };
     }
     if (!formData.purpose.trim()) {
-      return { valid: false, error: 'Назначение реплики обязательно' };
+      return { valid: false, error: 'Replica purpose is required' };
     }
     if (!formData.shortDescription.trim()) {
-      return { valid: false, error: 'Краткое описание обязательно' };
+      return { valid: false, error: 'Short description is required' };
     }
 
-    // Проверка URL изображения
+    // Check profile image URL
     if (!formData.profileImage || !isValidHttpUrl(formData.profileImage)) {
       return { 
         valid: false, 
-        error: 'URL изображения профиля должен быть действительным HTTP/HTTPS URL' 
+        error: 'Profile image URL must be a valid HTTP/HTTPS URL' 
       };
     }
 
@@ -211,21 +211,21 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
     slug: string;
   }
 
-  // Функция для генерации slug из имени реплики
+  // Function to generate slug from replica name
   const generateSlugFromName = (name: string): string => {
     return name.toLowerCase()
-      .replace(/[^\w\s-]/g, '') // Удаляем спецсимволы
-      .replace(/\s+/g, '-') // Заменяем пробелы на дефисы
-      .replace(/--+/g, '-') // Удаляем повторяющиеся дефисы
-      .trim(); // Удаляем пробелы по краям
+      .replace(/[^\w\s-]/g, '') // Remove special characters
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/--+/g, '-') // Remove duplicate hyphens
+      .trim(); // Remove whitespace from edges
   };
 
   // Generate content using OpenAI based on description
   const generateContent = async () => {
     if (!description.trim()) {
       toast({
-        title: 'Ошибка',
-        description: 'Введите описание для генерации содержимого',
+        title: 'Error',
+        description: 'Enter a description to generate content',
         variant: 'destructive'
       });
       return;
@@ -243,15 +243,15 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
       });
 
       if (!response.ok) {
-        throw new Error('Ошибка при генерации содержимого');
+        throw new Error('Error generating content');
       }
 
       const data = await response.json() as GeneratedReplicaContent;
       
-      // Проверка наличия URL изображения профиля по умолчанию
+      // Check if default profile image URL is being used
       const isDefaultProfileImage = formData.profileImage === 'https://placehold.co/400x400/4F46E5/FFFFFF?text=AI+Replica';
       
-      // Определение имени и slug для использования
+      // Determine name and slug to use
       const nameToUse = data.name || '';
       const slugToUse = data.slug || generateSlugFromName(nameToUse);
       
@@ -289,22 +289,22 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
       // Показываем рекомендацию для изображения профиля
       if (data.profileImageDescription) {
         toast({
-          title: 'Рекомендация для изображения',
+          title: 'Image Recommendation',
           description: data.profileImageDescription,
           variant: 'default'
         });
       }
 
       toast({
-        title: 'Успех',
-        description: 'Содержимое успешно сгенерировано',
+        title: 'Success',
+        description: 'Content successfully generated',
         variant: 'default'
       });
     } catch (error) {
       console.error('Error generating content:', error);
       toast({
-        title: 'Ошибка',
-        description: 'Не удалось сгенерировать содержимое',
+        title: 'Error',
+        description: 'Failed to generate content',
         variant: 'destructive'
       });
     } finally {
@@ -318,7 +318,7 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
     
     if (!validation.valid) {
       toast({
-        title: 'Ошибка валидации',
+        title: 'Validation Error',
         description: validation.error,
         variant: 'destructive'
       });
@@ -334,14 +334,14 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
         {/* AI Content Generation */}
         <Card className="mb-4 border-2 border-dashed border-primary/50">
           <CardHeader>
-            <CardTitle>Генерация содержимого с помощью ИИ</CardTitle>
+            <CardTitle>AI Content Generation</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="description">Описание реплики</Label>
+              <Label htmlFor="description">Replica Description</Label>
               <Textarea
                 id="description"
-                placeholder="Введите базовое описание реплики для генерации контента (например: Финансовый советник для начинающих инвесторов)"
+                placeholder="Enter a basic description of the replica for content generation (example: Financial advisor for beginner investors)"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="min-h-20"
@@ -357,12 +357,12 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
               {isGenerating ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Генерация...
+                  Generating...
                 </>
               ) : (
                 <>
                   <Wand2 className="h-4 w-4" />
-                  Сгенерировать содержимое
+                  Generate Content
                 </>
               )}
             </Button>
@@ -370,21 +370,21 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
         </Card>
         <Tabs defaultValue="basic">
           <TabsList className="grid grid-cols-4 mb-4">
-            <TabsTrigger value="basic">Основная информация</TabsTrigger>
-            <TabsTrigger value="advanced">Дополнительно</TabsTrigger>
-            <TabsTrigger value="llm">LLM настройки</TabsTrigger>
-            <TabsTrigger value="lists">Списки</TabsTrigger>
+            <TabsTrigger value="basic">Basic Information</TabsTrigger>
+            <TabsTrigger value="advanced">Advanced</TabsTrigger>
+            <TabsTrigger value="llm">LLM Settings</TabsTrigger>
+            <TabsTrigger value="lists">Lists</TabsTrigger>
           </TabsList>
 
-          {/* Основная информация */}
+          {/* Basic Information */}
           <TabsContent value="basic" className="space-y-4">
             <Card className="border border-dark-500 bg-dark-300 text-white">
               <CardHeader>
-                <CardTitle>Основная информация</CardTitle>
+                <CardTitle>Basic Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Название реплики *</Label>
+                  <Label htmlFor="name">Replica Name *</Label>
                   <Input
                     id="name"
                     name="name"
@@ -397,7 +397,7 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="purpose">Назначение реплики *</Label>
+                  <Label htmlFor="purpose">Replica Purpose *</Label>
                   <Textarea
                     id="purpose"
                     name="purpose"
@@ -410,7 +410,7 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="shortDescription">Краткое описание *</Label>
+                  <Label htmlFor="shortDescription">Short Description *</Label>
                   <Textarea
                     id="shortDescription"
                     name="shortDescription"
@@ -423,7 +423,7 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="greeting">Приветствие *</Label>
+                  <Label htmlFor="greeting">Greeting *</Label>
                   <Input
                     id="greeting"
                     name="greeting"
@@ -438,27 +438,27 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
             </Card>
           </TabsContent>
 
-          {/* Дополнительная информация */}
+          {/* Advanced Information */}
           <TabsContent value="advanced" className="space-y-4">
             <Card className="border border-dark-500 bg-dark-300 text-white">
               <CardHeader>
-                <CardTitle>Дополнительная информация</CardTitle>
+                <CardTitle>Advanced Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="type">Тип *</Label>
+                  <Label htmlFor="type">Type *</Label>
                   <Select 
                     defaultValue={formData.type} 
                     onValueChange={(value) => setFormData(prev => ({ ...prev, type: value }))}
                   >
                     <SelectTrigger className="border-dark-500 bg-dark-400 text-white">
-                      <SelectValue placeholder="Выберите тип реплики" />
+                      <SelectValue placeholder="Select replica type" />
                     </SelectTrigger>
                     <SelectContent className="border-dark-500 bg-dark-300 text-white">
-                      <SelectItem value="character">Персонаж</SelectItem>
-                      <SelectItem value="assistant">Ассистент</SelectItem>
-                      <SelectItem value="tutor">Наставник</SelectItem>
-                      <SelectItem value="expert">Эксперт</SelectItem>
+                      <SelectItem value="character">Character</SelectItem>
+                      <SelectItem value="assistant">Assistant</SelectItem>
+                      <SelectItem value="tutor">Tutor</SelectItem>
+                      <SelectItem value="expert">Expert</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -476,7 +476,7 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="profileImage">URL изображения профиля *</Label>
+                  <Label htmlFor="profileImage">Profile Image URL *</Label>
                   <Input
                     id="profileImage"
                     name="profileImage"
@@ -487,12 +487,12 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
                     required
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Обязательное поле. URL должен начинаться с http:// или https://
+                    Required field. URL must start with http:// or https://
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="voicePreviewText">Текст для превью голоса</Label>
+                  <Label htmlFor="voicePreviewText">Voice Preview Text</Label>
                   <Input
                     id="voicePreviewText"
                     name="voicePreviewText"
@@ -509,21 +509,21 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
                     checked={formData.private}
                     onCheckedChange={handlePrivateChange}
                   />
-                  <Label htmlFor="private">Приватная реплика</Label>
+                  <Label htmlFor="private">Private Replica</Label>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* LLM настройки */}
+          {/* LLM Settings */}
           <TabsContent value="llm" className="space-y-4">
             <Card className="border border-dark-500 bg-dark-300 text-white">
               <CardHeader>
-                <CardTitle>Настройки LLM</CardTitle>
+                <CardTitle>LLM Settings</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="llm.model">Модель *</Label>
+                  <Label htmlFor="llm.model">Model *</Label>
                   <Select 
                     defaultValue={formData.llm?.model} 
                     onValueChange={(value) => setFormData(prev => ({ 
@@ -532,7 +532,7 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
                     }))}
                   >
                     <SelectTrigger className="border-dark-500 bg-dark-400 text-white">
-                      <SelectValue placeholder="Выберите модель" />
+                      <SelectValue placeholder="Select a model" />
                     </SelectTrigger>
                     <SelectContent className="border-dark-500 bg-dark-300 text-white">
                       <SelectItem value="gpt-4o">GPT-4o</SelectItem>
@@ -544,7 +544,7 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="llm.memoryMode">Режим памяти *</Label>
+                  <Label htmlFor="llm.memoryMode">Memory Mode *</Label>
                   <Select 
                     defaultValue={formData.llm?.memoryMode} 
                     onValueChange={(value) => setFormData(prev => ({ 
@@ -553,7 +553,7 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
                     }))}
                   >
                     <SelectTrigger className="border-dark-500 bg-dark-400 text-white">
-                      <SelectValue placeholder="Выберите режим памяти" />
+                      <SelectValue placeholder="Select memory mode" />
                     </SelectTrigger>
                     <SelectContent className="border-dark-500 bg-dark-300 text-white">
                       <SelectItem value="rag-search">RAG Search</SelectItem>
@@ -564,7 +564,7 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="llm.systemMessage">Системное сообщение *</Label>
+                  <Label htmlFor="llm.systemMessage">System Message *</Label>
                   <Textarea
                     id="llm.systemMessage"
                     name="llm.systemMessage"
@@ -579,18 +579,18 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
             </Card>
           </TabsContent>
 
-          {/* Списки */}
+          {/* Lists */}
           <TabsContent value="lists" className="space-y-4">
             <Card className="border border-dark-500 bg-dark-300 text-white">
               <CardHeader>
-                <CardTitle>Теги</CardTitle>
+                <CardTitle>Tags</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex gap-2">
                   <Input
                     value={newTag}
                     onChange={(e) => setNewTag(e.target.value)}
-                    placeholder="Добавить тег"
+                    placeholder="Add tag"
                     className="border-dark-500 bg-dark-400 text-white"
                     onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
                   />
@@ -622,7 +622,7 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
 
             <Card className="border border-dark-500 bg-dark-300 text-white">
               <CardHeader>
-                <CardTitle>Разрешенные email-адреса</CardTitle>
+                <CardTitle>Allowed Email Addresses</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex gap-2">
@@ -661,14 +661,14 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
 
             <Card className="border border-dark-500 bg-dark-300 text-white">
               <CardHeader>
-                <CardTitle>Предложенные вопросы</CardTitle>
+                <CardTitle>Suggested Questions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex gap-2">
                   <Input
                     value={newQuestion}
                     onChange={(e) => setNewQuestion(e.target.value)}
-                    placeholder="Что такое Mafia Coach?"
+                    placeholder="What is Mafia Coach?"
                     className="border-dark-500 bg-dark-400 text-white"
                     onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddQuestion())}
                   />
@@ -700,7 +700,7 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
 
             <Card className="border border-dark-500 bg-dark-300 text-white">
               <CardHeader>
-                <CardTitle>Инструменты LLM</CardTitle>
+                <CardTitle>LLM Tools</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex gap-2">
@@ -748,7 +748,7 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
           className="border-dark-500 bg-dark-400 text-white"
           disabled={isLoading}
         >
-          Отмена
+          Cancel
         </Button>
         <Button
           type="submit"
@@ -758,12 +758,12 @@ export default function ReplicaForm({ onSubmit, initialData, onCancel, isLoading
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {isEditMode ? 'Сохранение...' : 'Создание...'}
+              {isEditMode ? 'Saving...' : 'Creating...'}
             </>
           ) : (
             <>
               <Save className="mr-2 h-4 w-4" />
-              {isEditMode ? 'Сохранить изменения' : 'Создать реплику'}
+              {isEditMode ? 'Save Changes' : 'Create Replica'}
             </>
           )}
         </Button>

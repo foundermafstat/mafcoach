@@ -14,6 +14,8 @@ import {
 	Database,
 	History,
 	LayoutGrid,
+	RefreshCcw,
+	Bot,
 } from 'lucide-react';
 import { usePlayer } from './player-provider';
 import {
@@ -25,8 +27,9 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
-
 import { useHeader } from '@/components/header-context';
+import { useReplica } from './replica-context';
+import { Skeleton } from '@/components/ui/skeleton';
 
 function HeaderInner() {
 	const pathname = usePathname();
@@ -44,14 +47,12 @@ function HeaderInner() {
 	const adminItems = [
 		{ name: 'API Settings', path: '/admin/settings' },
 		{ name: 'API Keys', path: '/api-keys' },
-		{ name: 'Database Management', path: '/admin/database' },
 	];
 
 	const sensayTrainingItems = [
 		{ name: 'AI Training', path: '/training' },
 		{ name: 'Replicas', path: '/replicas' },
 		{ name: 'Chat History', path: '/chat-history' },
-		{ name: 'Training Stats', path: '/training-stats' },
 	];
 
 	const gameItems = [
@@ -114,7 +115,7 @@ function HeaderInner() {
 						</DropdownMenu>
 
 						{/* Dropdown menu for game pages */}
-						<DropdownMenu>
+						{/* <DropdownMenu>
 							<DropdownMenuTrigger asChild>
 								<Button
 									variant="ghost"
@@ -140,7 +141,7 @@ function HeaderInner() {
 									</DropdownMenuItem>
 								))}
 							</DropdownMenuContent>
-						</DropdownMenu>
+						</DropdownMenu> */}
 
 						{/* Dropdown menu for administration */}
 						<DropdownMenu>
@@ -200,6 +201,8 @@ function HeaderInner() {
 							</DropdownMenuContent>
 						</DropdownMenu>
 
+						
+
 						{/* Dropdown menu for experimental API */}
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
@@ -257,7 +260,10 @@ function HeaderInner() {
 
 					<ModeToggle />
 
-					<DropdownMenu>
+					{/* Replica Selection Dropdown */}
+					<ReplicaDropdown />
+
+					{/* <DropdownMenu>
 						<DropdownMenuTrigger asChild>
 							<Button
 								variant="ghost"
@@ -318,10 +324,78 @@ function HeaderInner() {
 								<span>Sign out</span>
 							</DropdownMenuItem>
 						</DropdownMenuContent>
-					</DropdownMenu>
+					</DropdownMenu> */}
 				</div>
 			</div>
 		</header>
+	);
+}
+
+// Replica dropdown component for header
+function ReplicaDropdown() {
+	const { 
+		replicas, 
+		selectedReplicaUuid, 
+		setSelectedReplicaUuid, 
+		loading,
+		refreshReplicas,
+		selectedReplica 
+	} = useReplica();
+
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button
+					variant="ghost"
+					className="flex items-center gap-1 text-white hover:bg-mafia-800 hover:text-white px-2 py-1 h-auto"
+				>
+					<Bot size={14} className="mr-1" />
+					<span className="text-sm font-medium">
+						{loading ? (
+							"Loading replicas..."
+						) : selectedReplica ? (
+							selectedReplica.name
+						) : (
+							"Select Replica"
+						)}
+					</span>
+					<ChevronDown size={14} />
+				</Button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent>
+				<DropdownMenuLabel>Active Replica</DropdownMenuLabel>
+				<DropdownMenuSeparator />
+				
+				{loading ? (
+					<div className="px-2 py-1">
+						<Skeleton className="h-5 w-full" />
+						<Skeleton className="h-5 w-full mt-1" />
+						<Skeleton className="h-5 w-full mt-1" />
+					</div>
+				) : replicas.length > 0 ? (
+					replicas.map((replica) => (
+						<DropdownMenuItem 
+							key={replica.uuid} 
+							onClick={() => setSelectedReplicaUuid(replica.uuid)}
+							className={selectedReplicaUuid === replica.uuid ? "bg-mafia-100 dark:bg-mafia-800" : ""}
+						>
+							{replica.name}
+							<span className="ml-2 text-xs opacity-70">({replica.type})</span>
+						</DropdownMenuItem>
+					))
+				) : (
+					<DropdownMenuItem disabled>
+						No replicas available
+					</DropdownMenuItem>
+				)}
+				
+				<DropdownMenuSeparator />
+				<DropdownMenuItem onClick={refreshReplicas}>
+					<RefreshCcw className="h-4 w-4 mr-2" />
+					Refresh Replicas
+				</DropdownMenuItem>
+			</DropdownMenuContent>
+		</DropdownMenu>
 	);
 }
 

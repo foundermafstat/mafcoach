@@ -2,11 +2,12 @@
 
 import { useState, useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Download, Search, Trash } from "lucide-react"
+import { Download, Trash, Bot, Eye, RefreshCcw } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { useReplica } from "@/components/replica-provider"
+import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
   DialogContent,
@@ -16,9 +17,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import type { SensayChatHistory } from "@/app/lib/api/sensay-chat-history"
+import type { SensayChatHistory, SensayChatMessage } from "@/app/lib/api/sensay-chat-history"
 
 // Используем тип из нашего сервиса
+
+// Extended chat history with status
+interface ExtendedSensayChatHistory extends SensayChatHistory {
+  status?: string;
+}
 
 export default function ChatHistoryPage() {
   // Определяем стили для контейнера страницы для улучшения прокрутки
@@ -33,18 +39,20 @@ export default function ChatHistoryPage() {
     margin: '0 auto',
   };
 
-  const [chatHistory, setChatHistory] = useState<SensayChatHistory[]>([])
+  const [chatHistory, setChatHistory] = useState<ExtendedSensayChatHistory[]>([])
   const [loading, setLoading] = useState(true)
-  const [replicaUUID, setReplicaUUID] = useState(process.env.NEXT_PUBLIC_SENSAY_REPLICA_UUID || "")
-  const [selectedChat, setSelectedChat] = useState<SensayChatHistory | null>(null)
+  const [selectedChat, setSelectedChat] = useState<ExtendedSensayChatHistory | null>(null)
   const { toast } = useToast()
+  
+  // Use the global replica context instead of local state
+  const { selectedReplicaUuid: replicaUUID, selectedReplica } = useReplica()
 
   // Fetch chat history
   const fetchChatHistory = useCallback(async () => {
-    if (!replicaUUID.trim()) {
+    if (!replicaUUID) {
       toast({
-        title: "Validation Error",
-        description: "Please enter a replica UUID.",
+        title: "No Replica Selected",
+        description: "Please select a replica from the header dropdown.",
         variant: "destructive",
       })
       return
@@ -76,30 +84,35 @@ export default function ChatHistoryPage() {
       const data = debugData.data;
       
       // Обрабатываем данные в зависимости от формата
-      let processedData = [];
+      let processedData: ExtendedSensayChatHistory[] = [];
       
       if (data?.history && Array.isArray(data.history)) {
-        processedData = data.history.map((item: Record<string, any>) => ({
+        processedData = data.history.map((item: Record<string, unknown>) => ({
           id: item.id || `history-${Date.now()}`,
           replicaUUID: replicaUUID,
           messages: Array.isArray(item.messages) ? item.messages : [],
-          createdAt: item.createdAt || new Date().toISOString()
+          createdAt: item.createdAt as string || new Date().toISOString(),
+          status: item.status as string || 'COMPLETED'
         }));
       } else if (data?.items && Array.isArray(data.items)) {
-        processedData = data.items.map((item: Record<string, any>) => ({
+        processedData = data.items.map((item: Record<string, unknown>) => ({
           id: item.id || `history-${Date.now()}`,
           replicaUUID: replicaUUID,
           messages: [{
             role: 'user',
-            content: item.content || '',
-            timestamp: item.created_at || new Date().toISOString()
+            content: item.content as string || '',
+            timestamp: item.created_at as string || new Date().toISOString()
           }],
-          createdAt: item.created_at || new Date().toISOString()
+          createdAt: item.created_at as string || new Date().toISOString(),
+          status: item.status as string || 'COMPLETED'
         }));
       } else {
         // Если данные в другом формате, просто используем как есть
         console.log('Data in unknown format:', data);
-        processedData = Array.isArray(data) ? data : [];
+        processedData = Array.isArray(data) ? data.map((item: any) => ({
+          ...item,
+          status: item.status || 'UNKNOWN'
+        })) : [];
       }
       
       setChatHistory(processedData);
@@ -116,12 +129,9 @@ export default function ChatHistoryPage() {
     }
   }, [replicaUUID, toast])
   
-  // Инициализация: загружаем историю чатов при загрузке страницы
+  // Инициализация: загружаем историю чатов при загрузке страницы или при изменении реплики
   useEffect(() => {
-    console.log('Environment variables available on client:', {
-      NEXT_PUBLIC_SENSAY_REPLICA_UUID: process.env.NEXT_PUBLIC_SENSAY_REPLICA_UUID,
-      replicaUUID
-    });
+    console.log('Using replica UUID from global context:', replicaUUID);
     
     if (replicaUUID) {
       fetchChatHistory();
@@ -130,29 +140,26 @@ export default function ChatHistoryPage() {
 
   // Create chat history entry
   const handleCreateChatEntry = async () => {
-    if (!replicaUUID.trim()) {
+    if (!replicaUUID) {
       toast({
-        title: "Validation Error",
-        description: "Please enter a replica UUID.",
+        title: "No Replica Selected",
+        description: "Please select a replica from the header dropdown.",
         variant: "destructive",
       })
       return
     }
 
     try {
+      const testMessage = "Hello, this is a test message.";
+      
+      // Use the updated API format with 'content' instead of 'messages' array
       const response = await fetch(`/api/sensay/chat-history?replicaUUID=${encodeURIComponent(replicaUUID)}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          messages: [
-            {
-              role: "user",
-              content: "Hello, this is a test message.",
-              timestamp: new Date().toISOString(),
-            },
-          ],
+          content: testMessage,
         }),
       })
 
@@ -180,10 +187,10 @@ export default function ChatHistoryPage() {
 
   // Delete chat history entry
   const handleDeleteChatEntry = async (chatId: string) => {
-    if (!replicaUUID.trim()) {
+    if (!replicaUUID) {
       toast({
-        title: "Validation Error",
-        description: "Please enter a replica UUID.",
+        title: "No Replica Selected",
+        description: "Please select a replica from the header dropdown.",
         variant: "destructive",
       })
       return
@@ -228,7 +235,7 @@ export default function ChatHistoryPage() {
   }
 
   // Download chat history as JSON
-  const downloadChatHistory = (chat: SensayChatHistory) => {
+  const downloadChatHistory = (chat: ExtendedSensayChatHistory) => {
     const dataStr = JSON.stringify(chat, null, 2)
     const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`
 
@@ -252,26 +259,29 @@ export default function ChatHistoryPage() {
 
       <Card className="border-mafia-200 dark:border-mafia-800">
         <CardHeader className="bg-mafia-50 dark:bg-mafia-900/20 rounded-t-lg">
-          <CardTitle className="text-mafia-900 dark:text-mafia-300">Search Chat History</CardTitle>
+          <CardTitle className="text-mafia-900 dark:text-mafia-300">Active Replica</CardTitle>
           <CardDescription>View and manage your chat history</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 pt-4">
-          <div className="flex items-end gap-4">
-            <div className="flex-1">
-              <label htmlFor="replicaUUID" className="block text-sm font-medium mb-1">
-                Replica UUID
-              </label>
-              <Input
-                id="replicaUUID"
-                value={replicaUUID}
-                onChange={(e) => setReplicaUUID(e.target.value)}
-                placeholder="Enter replica UUID"
-                className="border-mafia-300 focus-visible:ring-mafia-500"
-              />
+          <div>
+            <div className="flex items-center gap-2 p-2 border rounded-md border-mafia-300 bg-mafia-50 dark:bg-mafia-900/20 dark:border-mafia-700">
+              <Bot className="h-5 w-5 text-mafia-500" />
+              {selectedReplica ? (
+                <div>
+                  <span className="font-medium">{selectedReplica.name}</span>
+                  <span className="ml-2 text-xs opacity-70">({selectedReplica.type})</span>
+                </div>
+              ) : (
+                <div className="text-mafia-500 italic">
+                  No replica selected. Please select a replica from the header dropdown.
+                </div>
+              )}
             </div>
+          </div>
+          <div className="flex space-x-2">
             <Button onClick={fetchChatHistory} className="bg-mafia-600 hover:bg-mafia-700">
-              <Search className="mr-2 h-4 w-4" />
-              Search
+              <RefreshCcw className="mr-2 h-4 w-4" />
+              Refresh History
             </Button>
             <Button onClick={handleCreateChatEntry} variant="outline" className="border-mafia-300">
               Create Test Entry
@@ -291,6 +301,7 @@ export default function ChatHistoryPage() {
                 <TableRow>
                   <TableHead>ID</TableHead>
                   <TableHead>Created</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Messages</TableHead>
                   <TableHead className="w-[100px]">Actions</TableHead>
                 </TableRow>
@@ -298,13 +309,13 @@ export default function ChatHistoryPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-4">
+                    <TableCell colSpan={5} className="text-center py-4">
                       Loading chat history...
                     </TableCell>
                   </TableRow>
                 ) : chatHistory.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-4">
+                    <TableCell colSpan={5} className="text-center py-4">
                       No chat history found.
                     </TableCell>
                   </TableRow>
@@ -313,6 +324,17 @@ export default function ChatHistoryPage() {
                     <TableRow key={chat.id}>
                       <TableCell>{typeof chat.id === 'string' ? `${chat.id.substring(0, 8)}...` : chat.id}</TableCell>
                       <TableCell>{formatDate(chat.createdAt)}</TableCell>
+                      <TableCell>
+                        {chat.status ? (
+                          <Badge variant={chat.status === 'COMPLETED' ? 'default' : 
+                                 chat.status === 'PROCESSING' ? 'secondary' : 
+                                 chat.status === 'FAILED' ? 'destructive' : 'outline'}>
+                            {chat.status}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">UNKNOWN</Badge>
+                        )}
+                      </TableCell>
                       <TableCell>{chat.messages.length} messages</TableCell>
                       <TableCell>
                         <div className="flex space-x-1">
@@ -322,7 +344,7 @@ export default function ChatHistoryPage() {
                             onClick={() => setSelectedChat(chat)}
                             className="h-8 w-8 text-blue-600"
                           >
-                            <Search className="h-4 w-4" />
+                            <Eye className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
@@ -366,43 +388,97 @@ export default function ChatHistoryPage() {
         </CardContent>
       </Card>
 
+      {/* Dialog to view chat history details */}
       {selectedChat && (
         <Dialog open={!!selectedChat} onOpenChange={(open) => !open && setSelectedChat(null)}>
-          <DialogContent 
-            className="max-w-3xl overflow-y-auto" 
-            style={{ 
-              maxHeight: '80vh',
-              overflowY: 'auto'
-            }}
-          >
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Chat Conversation</DialogTitle>
+              <DialogTitle>Chat History Details</DialogTitle>
               <DialogDescription>
-                ID: {selectedChat.id} • Created: {formatDate(selectedChat.createdAt)}
+                View detailed information about this chat history
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 my-4 max-h-[50vh] overflow-y-auto">
-              {selectedChat.messages.map((message: { role: string; content: string; timestamp: string }, index: number) => (
-                <div key={`${index}-${message.timestamp}`} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div
-                    className={`max-w-[80%] rounded-lg p-3 ${
-                      message.role === "user" ? "bg-mafia-600 text-white" : "bg-muted"
-                    }`}
-                  >
-                    <p className="text-sm">{message.content}</p>
-                    <p className="text-xs mt-1 opacity-60">{formatDate(message.timestamp)}</p>
+            <div className="space-y-4">
+              {/* Debug information section */}
+              <div className="bg-mafia-50 dark:bg-mafia-900/20 p-4 rounded-md border border-mafia-200 dark:border-mafia-800">
+                <h3 className="text-sm font-medium mb-2">Debug Information</h3>
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  <div>
+                    <span className="text-xs font-semibold">ID:</span>
+                    <code className="ml-2 text-xs bg-mafia-100 dark:bg-mafia-800 p-1 rounded">
+                      {selectedChat.id}
+                    </code>
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold">Created:</span>
+                    <code className="ml-2 text-xs bg-mafia-100 dark:bg-mafia-800 p-1 rounded">
+                      {formatDate(selectedChat.createdAt)}
+                    </code>
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold">Status:</span>
+                    <code className="ml-2 text-xs bg-mafia-100 dark:bg-mafia-800 p-1 rounded">
+                      {selectedChat.status || 'UNKNOWN'}
+                    </code>
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold">Replica UUID:</span>
+                    <code className="ml-2 text-xs bg-mafia-100 dark:bg-mafia-800 p-1 rounded">
+                      {selectedChat.replicaUUID}
+                    </code>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-xs font-semibold">Message Count:</span>
+                    <code className="ml-2 text-xs bg-mafia-100 dark:bg-mafia-800 p-1 rounded">
+                      {selectedChat.messages.length}
+                    </code>
                   </div>
                 </div>
-              ))}
+              </div>
+              
+              {/* Messages section */}
+              <div className="bg-mafia-50 dark:bg-mafia-900/20 p-4 rounded-md border border-mafia-200 dark:border-mafia-800">
+                <h3 className="text-sm font-medium mb-2">Messages</h3>
+                <div className="space-y-3">
+                  {selectedChat.messages.map((message: SensayChatMessage, idx: number) => (
+                    <div
+                      key={`msg-${idx}`}
+                      className={`p-3 rounded-lg ${
+                        message.role === 'user'
+                          ? 'bg-mafia-200 dark:bg-mafia-800 text-mafia-900 dark:text-mafia-100 ml-auto max-w-[80%]'
+                          : 'bg-mafia-600 text-white mr-auto max-w-[80%]'
+                      }`}
+                    >
+                      <div className="flex justify-between items-center mb-1">
+                        <Badge variant={message.role === 'user' ? 'outline' : 'default'}>
+                          {message.role}
+                        </Badge>
+                        {message.timestamp && (
+                          <span className="text-xs opacity-70">{formatDate(message.timestamp)}</span>
+                        )}
+                      </div>
+                      <p className="whitespace-pre-wrap">{message.content}</p>
+                    </div>
+                  ))}
+                  
+                  {selectedChat.messages.length === 0 && (
+                    <div className="text-center p-4 text-sm text-gray-500">
+                      No messages in this chat history
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setSelectedChat(null)}>
-                Close
-              </Button>
-              <Button onClick={() => downloadChatHistory(selectedChat)} className="bg-mafia-600 hover:bg-mafia-700">
+              <Button
+                variant="outline"
+                onClick={() => downloadChatHistory(selectedChat)}
+                className="mr-auto"
+              >
                 <Download className="mr-2 h-4 w-4" />
                 Download
               </Button>
+              <Button onClick={() => setSelectedChat(null)}>Close</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

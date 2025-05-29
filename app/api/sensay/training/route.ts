@@ -19,9 +19,11 @@ interface KnowledgeBaseEntry {
 }
 
 // Получить все тренировочные записи или конкретную запись по ID
+// Также поддерживает фильтрацию по UUID реплики
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
+  const replicaUuid = searchParams.get('replica_uuid');
   try {
     // Проверяем, что ключи API доступны
     if (!SENSAY_API_KEY || !SENSAY_ORG_ID) {
@@ -32,9 +34,14 @@ export async function GET(request: Request) {
     }
     
     // Если указан ID, получаем конкретную запись, иначе получаем все записи
-    const url = id 
+    let url = id 
       ? `https://api.sensay.io/v1/training/${id}` 
       : "https://api.sensay.io/v1/training";
+      
+    // Если указан UUID реплики, добавляем фильтр
+    if (replicaUuid && !id) {
+      url += `?replica_uuid=${replicaUuid}`;
+    }
       
     const response = await fetch(url, {
       method: "GET",
@@ -54,7 +61,15 @@ export async function GET(request: Request) {
 
     const data = await response.json();
     // Если это ответ на запрос всех записей, возвращаем items, иначе возвращаем один объект
-    return NextResponse.json(id ? data : data.items);
+    const result = id ? data : data.items;
+    
+    // Если фильтр по UUID реплики был указан, но API не поддерживает этот параметр,
+    // фильтруем записи на стороне сервера
+    if (replicaUuid && !id && Array.isArray(result)) {
+      return NextResponse.json(result.filter(item => item.replica_uuid === replicaUuid));
+    }
+    
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error fetching training entries:', error);
     return NextResponse.json(
