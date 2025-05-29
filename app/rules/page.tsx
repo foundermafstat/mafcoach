@@ -1,12 +1,11 @@
-import MainLayout from "@/components/main-layout"
 import GameRules from "@/components/game-rules"
 import QuestSystem from "@/components/quest-system"
 
 export default function RulesPage() {
   return (
-    <MainLayout>
+    <div className="p-6">
       <GameRules />
       <QuestSystem pageType="rules" />
-    </MainLayout>
+    </div>
   )
 }

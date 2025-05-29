@@ -15,7 +15,7 @@ type Message = {
 
 type ChatContextType = {
   messages: Message[]
-  addMessage: (message: Omit<Message, "id" | "timestamp">) => void
+  addMessage: (message: Omit<Message, "id" | "timestamp">, replicaUuid?: string) => void
   isLoading: boolean
   clearChat: () => void
 }
@@ -25,7 +25,8 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined)
 const WELCOME_MESSAGE = {
   id: "welcome-message",
   role: "assistant" as const,
-  content: "Hello! I'm your Mafia game assistant. How can I help you learn about the game today?",
+  // content: "Hello! I'm your Mafia game assistant. How can I help you learn about the game today?",
+  content: "Welcome! I'm Ihor, your Mafia coach and teammate in training. Ready to level up your game? ",
   timestamp: Date.now(),
 }
 
@@ -53,7 +54,7 @@ export default function ChatProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("chatHistory", JSON.stringify(messages))
   }, [messages])
 
-  const addMessage = async (message: Omit<Message, "id" | "timestamp">) => {
+  const addMessage = async (message: Omit<Message, "id" | "timestamp">, replicaUuid?: string) => {
     const newMessage = {
       ...message,
       id: Date.now().toString(),
@@ -65,15 +66,16 @@ export default function ChatProvider({ children }: { children: ReactNode }) {
     if (message.role === "user") {
       setIsLoading(true)
       try {
-        // Используем UUID реплики из переменных окружения
-        console.log('Using replica UUID from env:', SENSAY_REPLICA_UUID);
+        // Используем UUID реплики из параметра или из переменной окружения в качестве запасного варианта
+        const targetReplicaUuid = replicaUuid || SENSAY_REPLICA_UUID;
+        console.log('Using replica UUID:', targetReplicaUuid);
         
         try {
           // Send the message to the Sensay replica using direct API
           // Обратите внимание на порядок параметров: content, replicaUuid, skipChatHistory, userId
           const response = await sendMessageToReplicaDirect(
             message.content,
-            SENSAY_REPLICA_UUID,
+            targetReplicaUuid,
             false // Don't skip chat history
           )
           

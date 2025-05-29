@@ -3,11 +3,11 @@
 import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Trash, Edit, Save, X, Copy } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { Plus, Trash, Edit, Info, Bot, Database, Eye, Zap, AlertCircle, Copy } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
+import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
   DialogContent,
@@ -17,410 +17,490 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
-type Replica = {
-  id: string
-  name: string
-  description: string
-  createdAt: string
-  updatedAt: string
-}
+import { SensayReplica, ReplicaCreateUpdateData } from "@/app/lib/api/sensay-replicas-client"
+import { fetchReplicas, fetchReplicaById, createReplica, updateReplica, deleteReplica } from "@/app/lib/api/sensay-replicas-client"
+import ReplicaDetail from "@/components/replica-detail"
+import ReplicaForm from "@/components/replica-form"
+import { format } from "date-fns"
 
 export default function ReplicasPage() {
-  const [replicas, setReplicas] = useState<Replica[]>([])
+  const [replicas, setReplicas] = useState<SensayReplica[]>([])
   const [loading, setLoading] = useState(true)
-  const [name, setName] = useState("")
-  const [description, setDescription] = useState("")
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editName, setEditName] = useState("")
-  const [editDescription, setEditDescription] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [selectedReplica, setSelectedReplica] = useState<SensayReplica | null>(null)
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [formLoading, setFormLoading] = useState(false)
   const { toast } = useToast()
 
   // Fetch replicas
-  const fetchReplicas = useCallback(async () => {
+  const fetchReplicasData = useCallback(async () => {
     try {
       setLoading(true)
+      setError(null)
       console.log('Fetching replicas...');
 
-      const response = await fetch("/api/sensay/replicas")
-      console.log(`Response status: ${response.status} ${response.statusText}`);
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        console.error('Error response:', errorData);
-        throw new Error(errorData.error || "Failed to fetch replicas")
-      }
-
-      const data = await response.json()
-      console.log('Received data:', data);
-      
-      // Обрабатываем различные структуры ответа
-      let replicasList: Replica[] = [];
-      
-      if (Array.isArray(data)) {
-        console.log('Data is an array, using directly');
-        replicasList = data;
-      } else if (data.replicas && Array.isArray(data.replicas)) {
-        console.log('Found replicas array in response');
-        replicasList = data.replicas;
-      } else if (data.items && Array.isArray(data.items)) {
-        console.log('Found items array in response');
-        replicasList = data.items;
-      } else {
-        console.warn('Unexpected data structure:', data);
-        // Если структура не соответствует ожидаемой, возвращаем пустой массив
-        replicasList = [];
-      }
-      
-      console.log(`Setting ${replicasList.length} replicas`);
-      setReplicas(replicasList);
+      const data = await fetchReplicas()
+      console.log('Replicas fetched successfully:', data.length, 'items');
+      setReplicas(data)
     } catch (error) {
-      console.error("Error in fetchReplicas:", error)
+      console.error("Error fetching replicas:", error)
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch replicas"
+      setError(errorMessage)
       toast({
         title: "Error",
-        description: `Failed to load replicas: ${error instanceof Error ? error.message : "Unknown error"}`,
+        description: errorMessage,
         variant: "destructive",
       })
-      setReplicas([])
     } finally {
       setLoading(false)
     }
   }, [toast])
+  
+  // Получение деталей реплики
+  const handleViewReplica = async (replicaId: string) => {
+    try {
+      setLoading(true)
+      const replica = await fetchReplicaById(replicaId)
+      setSelectedReplica(replica)
+      setIsViewDialogOpen(true)
+    } catch (error) {
+      console.error("Error fetching replica details:", error)
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch replica details"
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  // Создание новой реплики
+  const handleCreateReplica = async (data: ReplicaCreateUpdateData) => {
+    try {
+      setFormLoading(true)
+      const newReplica = await createReplica(data)
+      toast({
+        title: "Success",
+        description: `Replica "${newReplica.name}" created successfully`,
+      })
+      await fetchReplicasData()
+      setIsCreateDialogOpen(false)
+    } catch (error) {
+      console.error("Error creating replica:", error)
+      const errorMessage = error instanceof Error ? error.message : "Failed to create replica"
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      setFormLoading(false)
+    }
+  }
+  
+  // Редактирование реплики
+  const handleOpenEditDialog = async (replicaId: string) => {
+    try {
+      setLoading(true)
+      const replica = await fetchReplicaById(replicaId)
+      setSelectedReplica(replica)
+      setIsEditDialogOpen(true)
+    } catch (error) {
+      console.error("Error fetching replica for edit:", error)
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch replica"
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  const handleUpdateReplica = async (data: ReplicaCreateUpdateData) => {
+    if (!selectedReplica) return
+    
+    try {
+      setFormLoading(true)
+      await updateReplica(selectedReplica.uuid, data)
+      toast({
+        title: "Success",
+        description: `Replica "${data.name}" updated successfully`,
+      })
+      await fetchReplicasData()
+      setIsEditDialogOpen(false)
+    } catch (error) {
+      console.error("Error updating replica:", error)
+      const errorMessage = error instanceof Error ? error.message : "Failed to update replica"
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      setFormLoading(false)
+    }
+  }
+  
+  // Удаление реплики
+  const handleOpenDeleteDialog = (replica: SensayReplica) => {
+    setSelectedReplica(replica)
+    setIsDeleteDialogOpen(true)
+  }
+  
+  const handleDeleteReplica = async () => {
+    if (!selectedReplica) return
+    
+    try {
+      setLoading(true)
+      await deleteReplica(selectedReplica.uuid)
+      toast({
+        title: "Success",
+        description: `Replica "${selectedReplica.name}" deleted successfully`,
+      })
+      await fetchReplicasData()
+      setIsDeleteDialogOpen(false)
+    } catch (error) {
+      console.error("Error deleting replica:", error)
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete replica"
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  const handleCopyId = (id: string) => {
+    navigator.clipboard.writeText(id);
+    toast({
+      title: "ID скопирован",
+      description: "Идентификатор реплики скопирован в буфер обмена",
+    });
+  };
 
   // Initial fetch
   useEffect(() => {
-    fetchReplicas()
-  }, [fetchReplicas])
+    fetchReplicasData()
+  }, [fetchReplicasData])
 
-  // Create replica
-  const handleCreateReplica = async () => {
-    if (!name.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Please enter a name for the replica.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      const response = await fetch("/api/sensay/replicas", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name,
-          description,
-        }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to create replica")
-      }
-
-      const newReplica = await response.json()
-
-      setReplicas((prev) => [newReplica, ...prev])
-      setName("")
-      setDescription("")
-
-      toast({
-        title: "Success",
-        description: "Replica created successfully.",
-      })
-    } catch (error) {
-      console.error("Error creating replica:", error)
-      toast({
-        title: "Error",
-        description: `Failed to create replica: ${error instanceof Error ? error.message : "Unknown error"}`,
-        variant: "destructive",
-      })
-    }
-  }
-
-  // Update replica
-  const handleUpdateReplica = async (id: string) => {
-    if (!editName.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Please enter a name for the replica.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      const response = await fetch(`/api/sensay/replicas?id=${id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: editName,
-          description: editDescription,
-        }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to update replica")
-      }
-
-      const updatedReplica = await response.json()
-
-      setReplicas((prev) =>
-        prev.map((replica) =>
-          replica.id === id ? updatedReplica : replica
-        )
-      )
-      setEditingId(null)
-
-      toast({
-        title: "Success",
-        description: "Replica updated successfully.",
-      })
-    } catch (error) {
-      console.error("Error updating replica:", error)
-      toast({
-        title: "Error",
-        description: `Failed to update replica: ${error instanceof Error ? error.message : "Unknown error"}`,
-        variant: "destructive",
-      })
-    }
-  }
-
-  // Delete replica
-  const handleDeleteReplica = async (id: string) => {
-    try {
-      const response = await fetch(`/api/sensay/replicas?id=${id}`, {
-        method: "DELETE",
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to delete replica")
-      }
-
-      setReplicas((prev) => prev.filter((replica) => replica.id !== id))
-
-      toast({
-        title: "Success",
-        description: "Replica deleted successfully.",
-      })
-    } catch (error) {
-      console.error("Error deleting replica:", error)
-      toast({
-        title: "Error",
-        description: `Failed to delete replica: ${error instanceof Error ? error.message : "Unknown error"}`,
-        variant: "destructive",
-      })
-    }
-  }
-
-  // Start editing replica
-  const startEditing = (replica: Replica) => {
-    setEditingId(replica.id)
-    setEditName(replica.name)
-    setEditDescription(replica.description)
-  }
-
-  // Cancel editing
-  const cancelEditing = () => {
-    setEditingId(null)
-  }
-
-  // Copy replica ID to clipboard
-  const copyToClipboard = (id: string) => {
-    navigator.clipboard.writeText(id)
-    toast({
-      title: "Copied!",
-      description: "Replica ID copied to clipboard.",
-    })
-  }
+  // UI Elements for replicas table
+  const replicasTable = replicas.length > 0 ? (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Название и информация</TableHead>
+          <TableHead>Идентификатор</TableHead>
+          <TableHead>Модель LLM</TableHead>
+          <TableHead>Теги</TableHead>
+          <TableHead>Создана</TableHead>
+          <TableHead>Действия</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {replicas.map((replica) => (
+          <TableRow key={replica.uuid}>
+            <TableCell>
+              <div className="font-medium flex items-center gap-3">
+                {/* Добавляем изображение реплики */}
+                <div className="relative h-10 w-10 rounded-full overflow-hidden flex-shrink-0 bg-mafia-100/10">
+                  <img 
+                    src={replica.profileImage || 'https://placehold.co/400x400/4F46E5/FFFFFF?text=AI'} 
+                    alt={replica.name}
+                    className="h-full w-full object-cover"
+                    onError={(e) => {
+                      // Заменяем битые изображения на плейсхолдер
+                      (e.target as HTMLImageElement).src = 'https://placehold.co/400x400/4F46E5/FFFFFF?text=AI';
+                    }}
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    {replica.name}
+                    {replica.private && <Badge variant="outline" className="ml-1 bg-dark-400">Приватная</Badge>}
+                  </div>
+                  {(replica.shortDescription || replica.short_description) && (
+                    <div className="text-xs text-muted-foreground mt-1 max-w-md truncate">
+                      {replica.shortDescription || replica.short_description}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant="secondary" className="text-xs">{replica.type}</Badge>
+                    {replica.voice_enabled && <Badge variant="outline" className="text-xs bg-dark-400">Voice</Badge>}
+                    {replica.video_enabled && <Badge variant="outline" className="text-xs bg-dark-400">Video</Badge>}
+                  </div>
+                </div>
+              </div>
+            </TableCell>
+            <TableCell>
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-muted-foreground font-mono truncate max-w-[130px]">
+                  {replica.uuid}
+                </span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6"
+                  title="Скопировать ID"
+                  onClick={() => handleCopyId(replica.uuid)}
+                >
+                  <Copy className="h-3 w-3" />
+                </Button>
+              </div>
+            </TableCell>
+            <TableCell>
+              <div className="flex items-center gap-2">
+                <Bot className="h-4 w-4 text-mafia-300" />
+                <span>{replica.llm?.model || "Не указана"}</span>
+              </div>
+              {replica.llm?.memoryMode && (
+                <div className="text-xs text-muted-foreground mt-1">Память: {replica.llm.memoryMode}</div>
+              )}
+              <div className="text-xs text-muted-foreground mt-1">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="link" className="h-auto p-0 text-xs">
+                      Системное сообщение
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 p-2 bg-dark-300 border-dark-500 text-white">
+                    <p className="text-xs">{replica.llm?.systemMessage || replica.system_message}</p>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </TableCell>
+            <TableCell>
+              <div className="flex flex-wrap gap-1 max-w-[150px]">
+                {replica.tags?.slice(0, 3).map((tag, index) => (
+                  <Badge key={index} variant="outline" className="text-xs bg-dark-400">{tag}</Badge>
+                ))}
+                {replica.tags && replica.tags.length > 3 && (
+                  <Badge variant="outline" className="text-xs bg-dark-400">+{replica.tags.length - 3}</Badge>
+                )}
+                {(!replica.tags || replica.tags.length === 0) && (
+                  <span className="text-xs text-muted-foreground">Нет тегов</span>
+                )}
+              </div>
+            </TableCell>
+            <TableCell>
+              {replica.created_at ? (
+                <div className="text-sm">
+                  {format(new Date(replica.created_at), "dd.MM.yyyy")}
+                  <div className="text-xs text-muted-foreground">
+                    {format(new Date(replica.created_at), "HH:mm:ss")}
+                  </div>
+                </div>
+              ) : (
+                <span className="text-xs text-muted-foreground">Не указана</span>
+              )}
+            </TableCell>
+            <TableCell>
+              <div className="flex space-x-2">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8"
+                  title="Подробная информация"
+                  onClick={() => handleViewReplica(replica.uuid)}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8"
+                  title="Редактировать"
+                  onClick={() => handleOpenEditDialog(replica.uuid)}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 hover:text-red-500"
+                  title="Удалить"
+                  onClick={() => handleOpenDeleteDialog(replica)}
+                >
+                  <Trash className="h-4 w-4" />
+                </Button>
+              </div>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  ) : (
+    <div className="text-center py-8 text-muted-foreground">
+      {error ? (
+        <div className="flex flex-col items-center gap-2">
+          <AlertCircle className="h-8 w-8 text-red-500" />
+          <p>Ошибка: {error}</p>
+        </div>
+      ) : (
+        "Реплики не найдены. Проверьте конфигурацию API."
+      )}
+    </div>
+  )
 
   return (
-    <div className="container mx-auto py-6 overflow-auto" style={{ maxHeight: '100vh' }}>
-      <h1 className="text-3xl font-bold mb-6 text-mafia-900 dark:text-mafia-300">AI Replicas</h1>
-
-      <div className="space-y-8">
+    <div className="container mx-auto py-6 space-y-8">
+      <div className="flex justify-between items-center">
         <div>
-          <Card className="border-mafia-200 dark:border-mafia-800">
-            <CardHeader className="bg-mafia-50 dark:bg-mafia-900/20 rounded-t-lg">
-              <CardTitle className="text-mafia-900 dark:text-mafia-300">Manage Replicas</CardTitle>
-              <CardDescription>View and manage your AI replicas</CardDescription>
-            </CardHeader>
-            <CardContent className="overflow-auto" style={{ maxHeight: '60vh' }}>
-              <Table className="overflow-auto">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-4">
-                        Loading replicas...
-                      </TableCell>
-                    </TableRow>
-                  ) : replicas.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-4">
-                        No replicas found. Create a new one below.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    replicas.map((replica) => (
-                      <TableRow key={replica.id}>
-                        <TableCell className="font-medium">
-                          {editingId === replica.id ? (
-                            <Input
-                              value={editName}
-                              onChange={(e) => setEditName(e.target.value)}
-                              className="border-mafia-300 focus-visible:ring-mafia-500"
-                            />
-                          ) : (
-                            replica.name
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {editingId === replica.id ? (
-                            <Textarea
-                              value={editDescription}
-                              onChange={(e) => setEditDescription(e.target.value)}
-                              className="border-mafia-300 focus-visible:ring-mafia-500 min-h-[80px]"
-                            />
-                          ) : (
-                            replica.description
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <span className="text-xs font-mono truncate max-w-[120px]">{replica.id}</span>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => copyToClipboard(replica.id)}
-                              className="h-6 w-6"
-                            >
-                              <Copy className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                        <TableCell>{new Date(replica.createdAt).toLocaleDateString()}</TableCell>
-                        <TableCell className="text-right">
-                          {editingId === replica.id ? (
-                            <div className="flex justify-end space-x-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleUpdateReplica(replica.id)}
-                                className="h-8 text-green-600"
-                              >
-                                <Save className="h-4 w-4 mr-1" />
-                                Save
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={cancelEditing}
-                                className="h-8"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="flex space-x-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => startEditing(replica)}
-                                className="h-8 w-8 text-blue-600"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600">
-                                    <Trash className="h-4 w-4" />
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent>
-                                  <DialogHeader>
-                                    <DialogTitle>Delete Replica</DialogTitle>
-                                    <DialogDescription>
-                                      Are you sure you want to delete "{replica.name}"? This action cannot be undone.
-                                    </DialogDescription>
-                                  </DialogHeader>
-                                  <DialogFooter>
-                                    <Button variant="outline" onClick={() => {}}>
-                                      Cancel
-                                    </Button>
-                                    <Button variant="destructive" onClick={() => handleDeleteReplica(replica.id)}>
-                                      Delete
-                                    </Button>
-                                  </DialogFooter>
-                                </DialogContent>
-                              </Dialog>
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <h1 className="text-3xl font-bold">Sensay Replicas</h1>
+          <p className="text-muted-foreground mt-1">Управление репликами для Sensay API</p>
         </div>
-
-        <div>
-          <Card className="border-mafia-200 dark:border-mafia-800">
-            <CardHeader className="bg-mafia-50 dark:bg-mafia-900/20 rounded-t-lg">
-              <CardTitle className="text-mafia-900 dark:text-mafia-300">Create New Replica</CardTitle>
-              <CardDescription>Add a new AI replica</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-4">
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium mb-1">
-                  Name
-                </label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter replica name"
-                  className="border-mafia-300 focus-visible:ring-mafia-500"
-                />
-              </div>
-              <div>
-                <label htmlFor="description" className="block text-sm font-medium mb-1">
-                  Description
-                </label>
-                <Textarea
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Enter replica description"
-                  className="min-h-[100px] border-mafia-300 focus-visible:ring-mafia-500"
-                />
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button onClick={handleCreateReplica} className="bg-mafia-600 hover:bg-mafia-700">
-                <Plus className="mr-2 h-4 w-4" />
-                Create Replica
-              </Button>
-            </CardFooter>
-          </Card>
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => setIsCreateDialogOpen(true)} 
+            className="bg-mafia-600 hover:bg-mafia-700"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Создать реплику
+          </Button>
+          <Button 
+            onClick={fetchReplicasData} 
+            disabled={loading} 
+            variant="outline"
+            className="border-dark-500 bg-dark-400 text-white"
+          >
+            {loading ? "Загрузка..." : "Обновить"}
+          </Button>
         </div>
       </div>
+
+      <Card className="border border-dark-500 bg-dark-300 text-white">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5 text-mafia-300" />
+            <span>Активные реплики</span>
+          </CardTitle>
+          <CardDescription>
+            Список реплик из Sensay API. Это ИИ-персонажи, которые могут использоваться в вашем приложении.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent" role="status">
+                <span className="sr-only">Loading...</span>
+              </div>
+              <div className="mt-4 text-muted-foreground">Загрузка реплик из Sensay API...</div>
+            </div>
+          ) : (
+            replicasTable
+          )}
+        </CardContent>
+        <CardFooter className="flex justify-between">
+          <div className="text-sm text-muted-foreground">
+            {replicas.length > 0 ? `Найдено ${replicas.length} реплик` : "Реплики не найдены"}
+          </div>
+        </CardFooter>
+      </Card>
+
+      {/* Диалог просмотра деталей реплики */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-4xl border border-dark-500 bg-dark-300 text-white">
+          <DialogHeader>
+            <DialogTitle>Информация о реплике</DialogTitle>
+            <DialogDescription>
+              Детальная информация о реплике {selectedReplica?.name}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedReplica && <ReplicaDetail replica={selectedReplica} />}
+          <DialogFooter>
+            <Button 
+              onClick={() => setIsViewDialogOpen(false)}
+              className="border-dark-500 bg-dark-400 text-white"
+            >
+              Закрыть
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Диалог создания реплики */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="max-w-4xl border border-dark-500 bg-dark-300 text-white">
+          <DialogHeader>
+            <DialogTitle>Создать новую реплику</DialogTitle>
+            <DialogDescription>
+              Заполните информацию для создания новой реплики Sensay
+            </DialogDescription>
+          </DialogHeader>
+          <ReplicaForm 
+            onSubmit={handleCreateReplica}
+            onCancel={() => setIsCreateDialogOpen(false)}
+            isLoading={formLoading}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Диалог редактирования реплики */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-4xl border border-dark-500 bg-dark-300 text-white">
+          <DialogHeader>
+            <DialogTitle>Редактировать реплику</DialogTitle>
+            <DialogDescription>
+              Обновите информацию о реплике {selectedReplica?.name}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedReplica && (
+            <ReplicaForm 
+              initialData={selectedReplica}
+              onSubmit={handleUpdateReplica}
+              onCancel={() => setIsEditDialogOpen(false)}
+              isLoading={formLoading}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Диалог подтверждения удаления */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent className="border border-dark-500 bg-dark-300 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Вы уверены?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Это действие удалит реплику <strong>{selectedReplica?.name}</strong> и не может быть отменено.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-dark-500 bg-dark-400 text-white">
+              Отмена
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteReplica}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -9,10 +9,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Plus, Trash, Edit, Save, X, Upload, FileText, RefreshCcw, AlertCircle, Eye } from "lucide-react"
+import { Plus, Trash, Edit, Save, X, Upload, FileText, RefreshCcw, AlertCircle, Eye, Database } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-// import { SensayTrainingService } from "@/app/lib/api/sensay-training"
+import ReplicaSelect from "@/components/replica-select"
+import { fetchTrainingStats, type TrainingStats } from "@/app/lib/api/sensay-training-stats-client"
 
 // Using the actual Sensay API types
 type KnowledgeEntry = {
@@ -43,7 +44,9 @@ export default function TrainingPage() {
   const [editDescription, setEditDescription] = useState("")
   const [file, setFile] = useState<File | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
-  // Используем API-маршруты вместо прямого доступа к сервису
+  const [trainingStats, setTrainingStats] = useState<TrainingStats | null>(null)
+  const [loadingStats, setLoadingStats] = useState(false)
+  
   const { toast } = useToast()
 
   // Fetch knowledge entries
@@ -90,10 +93,37 @@ export default function TrainingPage() {
     }
   }, [toast])
 
+  // Функция для получения статистики тренировок
+  const fetchTrainingStatsData = useCallback(async () => {
+    if (!replicaUUID) return;
+    
+    try {
+      setLoadingStats(true);
+      const stats = await fetchTrainingStats(replicaUUID);
+      setTrainingStats(stats);
+    } catch (error) {
+      console.error("Error fetching training stats:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load training statistics. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingStats(false);
+    }
+  }, [replicaUUID, toast]);
+
   // Initial fetch
   useEffect(() => {
-    fetchEntries(false)
-  }, [fetchEntries])
+    fetchEntries(false);
+  }, [fetchEntries]);
+  
+  // Fetch training stats when replica UUID changes
+  useEffect(() => {
+    if (replicaUUID) {
+      fetchTrainingStatsData();
+    }
+  }, [replicaUUID, fetchTrainingStatsData]);
   
   // Function to refresh entries
   const handleRefresh = () => {
@@ -445,6 +475,14 @@ export default function TrainingPage() {
     }
   }
 
+  // Форматирование размера данных в читаемый вид
+  const formatDataSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  };
+
   return (
     <div className="container mx-auto py-8 pb-32" style={{ height: "calc(100vh - 60px)", overflowY: "auto" }}>
       <div className="space-y-6">
@@ -461,6 +499,82 @@ export default function TrainingPage() {
             Refresh
           </Button>
         </div>
+        
+        {/* Статистика тренировок */}
+        {replicaUUID && (
+          <Card className="border-mafia-200 dark:border-mafia-800">
+            <CardHeader className="bg-mafia-50 dark:bg-mafia-900/20 rounded-t-lg py-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-mafia-900 dark:text-mafia-300 text-lg">
+                  <div className="flex items-center">
+                    <Database className="h-5 w-5 mr-2" />
+                    Training Statistics
+                  </div>
+                </CardTitle>
+                <Button 
+                  onClick={fetchTrainingStatsData} 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 px-2"
+                  disabled={loadingStats}
+                >
+                  <RefreshCcw className={`h-4 w-4 ${loadingStats ? "animate-spin" : ""}`} />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-3 pb-3">
+              {loadingStats ? (
+                <div className="flex flex-col space-y-2">
+                  <Skeleton className="h-5 w-full" />
+                  <Skeleton className="h-5 w-3/4" />
+                  <Skeleton className="h-5 w-1/2" />
+                </div>
+              ) : trainingStats ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="flex flex-col">
+                    <span className="text-sm text-mafia-500 dark:text-mafia-400">Total Entries</span>
+                    <span className="font-semibold">{trainingStats.total_entries}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm text-mafia-500 dark:text-mafia-400">Processed</span>
+                    <span className="font-semibold">{trainingStats.processed_entries} 
+                      <span className="text-xs font-normal ml-1 text-mafia-500">
+                        ({trainingStats.total_entries ? 
+                          Math.round((trainingStats.processed_entries / trainingStats.total_entries) * 100) : 0}%)
+                      </span>
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm text-mafia-500 dark:text-mafia-400">Processing</span>
+                    <span className="font-semibold">{trainingStats.processing_entries}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm text-mafia-500 dark:text-mafia-400">Errors</span>
+                    <span className="font-semibold">{trainingStats.error_entries}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm text-mafia-500 dark:text-mafia-400">Data Size</span>
+                    <span className="font-semibold">{formatDataSize(trainingStats.data_size_bytes)}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm text-mafia-500 dark:text-mafia-400">Tokens</span>
+                    <span className="font-semibold">{trainingStats.token_count.toLocaleString()}</span>
+                  </div>
+                  <div className="flex flex-col col-span-full">
+                    <span className="text-sm text-mafia-500 dark:text-mafia-400">Last Updated</span>
+                    <span className="font-semibold">
+                      {new Date(trainingStats.last_updated).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-mafia-500 dark:text-mafia-400">
+                  No statistics available for this replica.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Tabs defaultValue="text">
           <TabsList className="grid w-full max-w-md grid-cols-2">
@@ -476,20 +590,18 @@ export default function TrainingPage() {
               </CardHeader>
               <CardContent className="space-y-4 pt-4">
                 <div>
-                  <label htmlFor="replicaUUID" className="block text-sm font-medium mb-1">
-                    Replica UUID
+                  <label htmlFor="replicaSelect" className="block text-sm font-medium mb-1">
+                    Replica
                   </label>
-                  <Input
-                    id="replicaUUID"
+                  <ReplicaSelect
                     value={replicaUUID}
-                    onChange={(e) => setReplicaUUID(e.target.value)}
-                    placeholder="Enter replica UUID"
-                    className="border-mafia-300 focus-visible:ring-mafia-500"
+                    onChange={setReplicaUUID}
+                    className="w-full"
                   />
                 </div>
                 <div>
                   <label htmlFor="title" className="block text-sm font-medium mb-1">
-                    Title
+                    Title (optional)
                   </label>
                   <Input
                     id="title"
@@ -507,13 +619,13 @@ export default function TrainingPage() {
                     id="content"
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
-                    placeholder="Enter the content you want to train the AI with"
+                    placeholder="Enter the training content"
                     className="min-h-[150px] border-mafia-300 focus-visible:ring-mafia-500"
                   />
                 </div>
                 <div>
                   <label htmlFor="description" className="block text-sm font-medium mb-1">
-                    Description (Optional)
+                    Description (optional)
                   </label>
                   <Textarea
                     id="description"
@@ -525,8 +637,8 @@ export default function TrainingPage() {
                 </div>
               </CardContent>
               <CardFooter>
-                <Button 
-                  onClick={handleCreateEntry} 
+                <Button
+                  onClick={handleCreateEntry}
                   className="bg-mafia-600 hover:bg-mafia-700"
                   disabled={loading}
                 >
@@ -546,14 +658,12 @@ export default function TrainingPage() {
               <CardContent className="space-y-4 pt-4">
                 <div>
                   <label htmlFor="replicaUUID" className="block text-sm font-medium mb-1">
-                    Replica UUID
+                    Replica
                   </label>
-                  <Input
-                    id="replicaUUID"
+                  <ReplicaSelect
                     value={replicaUUID}
-                    onChange={(e) => setReplicaUUID(e.target.value)}
-                    placeholder="Enter replica UUID"
-                    className="border-mafia-300 focus-visible:ring-mafia-500"
+                    onChange={setReplicaUUID}
+                    className="w-full"
                   />
                 </div>
                 <div>
@@ -650,10 +760,10 @@ export default function TrainingPage() {
                             value={editContent}
                             onChange={(e) => setEditContent(e.target.value)}
                             placeholder="Content"
-                            className="border-mafia-300 focus-visible:ring-mafia-500 min-h-[100px]"
+                            className="min-h-[100px] border-mafia-300 focus-visible:ring-mafia-500"
                           />
                         ) : (
-                          <div className="max-w-[300px] truncate">{entry.raw_text || "No content"}</div>
+                          <div className="max-w-[200px] truncate">{entry.raw_text || "No content"}</div>
                         )}
                       </TableCell>
                       <TableCell>
@@ -661,42 +771,50 @@ export default function TrainingPage() {
                           {entry.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{entry.type}</Badge>
-                      </TableCell>
+                      <TableCell>{entry.type}</TableCell>
                       <TableCell>{new Date(entry.created_at).toLocaleDateString()}</TableCell>
                       <TableCell className="text-right">
-                        {editingId === entry.id ? (
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleUpdateEntry(entry.id)}
-                              disabled={loading}
-                            >
-                              <Save className="h-4 w-4 mr-1" />
-                              Save
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={cancelEditing}>
-                              <X className="h-4 w-4 mr-1" />
-                              Cancel
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="flex justify-end gap-2">
-                            <Button variant="outline" size="sm" onClick={() => startEditing(entry)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-500 hover:text-red-700 hover:bg-red-100"
-                              onClick={() => handleDeleteEntry(entry.id)}
-                            >
-                              <Trash className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        )}
+                        <div className="flex justify-end space-x-2">
+                          {editingId === entry.id ? (
+                            <>
+                              <Button
+                                onClick={() => handleUpdateEntry(entry.id)}
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-2 text-green-500 hover:text-green-700"
+                              >
+                                <Save className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                onClick={cancelEditing}
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-2 text-gray-500 hover:text-gray-700"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                onClick={() => startEditing(entry)}
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-2 text-blue-500 hover:text-blue-700"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                onClick={() => handleDeleteEntry(entry.id)}
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-2 text-red-500 hover:text-red-700"
+                              >
+                                <Trash className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
